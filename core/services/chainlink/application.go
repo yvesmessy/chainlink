@@ -10,6 +10,8 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
+
 	"github.com/gobuffalo/packr"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -59,10 +61,11 @@ type Application interface {
 	Start() error
 	Stop() error
 	GetStore() *strpkg.Store
+	GetJobORM() job.ORM
 	GetStatsPusher() synchronization.StatsPusher
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
-	AddJobV2(ctx context.Context, job job.Spec, name null.String) (int32, error)
+	AddJobV2(ctx context.Context, job job.SpecDB, name null.String) (int32, error)
 	ArchiveJob(*models.ID) error
 	DeleteJobV2(ctx context.Context, jobID int32) error
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
@@ -86,6 +89,7 @@ type ChainlinkApplication struct {
 	EthBroadcaster           bulletprooftxmanager.EthBroadcaster
 	LogBroadcaster           log.Broadcaster
 	EventBroadcaster         postgres.EventBroadcaster
+	JobORM                   job.ORM
 	jobSpawner               job.Spawner
 	pipelineRunner           pipeline.Runner
 	FluxMonitor              fluxmonitor.Service
@@ -143,19 +147,29 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		pipelineORM    = pipeline.NewORM(store.ORM.DB, store.Config, eventBroadcaster)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, store.Config)
 		jobORM         = job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, advisoryLocker)
-		jobSpawner     = job.NewSpawner(jobORM, store.Config)
 	)
 
-	services.RegisterDirectRequestDelegate(jobSpawner, logBroadcaster, pipelineRunner, store.DB)
-	var subservices []StartCloser
+	var (
+		subservices []StartCloser
+		delegates   = map[job.Type]job.Delegate{
+			job.DirectRequest: services.NewDirectRequestDelegate(
+				logBroadcaster,
+				pipelineRunner,
+				store.DB),
+			job.FluxMonitor: fluxmonitorv2.NewFluxMonitorDelegate(
+				pipelineRunner,
+				store.DB),
+		}
+	)
 	if (config.Dev() || config.FeatureOffchainReporting()) && config.P2PListenPort() > 0 && config.P2PPeerIDIsSet() {
 		logger.Debug("Off-chain reporting enabled")
 		concretePW := offchainreporting.NewSingletonPeerWrapper(store.OCRKeyStore, config, store.DB)
 		subservices = append(subservices, concretePW)
-		offchainreporting.RegisterJobType(store.ORM.DB, jobORM, store.Config, store.OCRKeyStore, jobSpawner, pipelineRunner, ethClient, logBroadcaster, concretePW)
+		delegates[job.OffchainReporting] = offchainreporting.NewJobSpawnerDelegate(store.DB, jobORM, config, store.OCRKeyStore, pipelineRunner, ethClient, logBroadcaster, concretePW)
 	} else {
 		logger.Debug("Off-chain reporting disabled")
 	}
+	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
 	subservices = append(subservices, jobSpawner, pipelineRunner)
 
 	store.NotifyNewEthTx = ethBroadcaster
@@ -168,6 +182,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		EthBroadcaster:           ethBroadcaster,
 		LogBroadcaster:           logBroadcaster,
 		EventBroadcaster:         eventBroadcaster,
+		JobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
 		pipelineRunner:           pipelineRunner,
 		FluxMonitor:              fluxMonitor,
@@ -371,6 +386,10 @@ func (app *ChainlinkApplication) GetStore() *strpkg.Store {
 	return app.Store
 }
 
+func (app *ChainlinkApplication) GetJobORM() job.ORM {
+	return app.JobORM
+}
+
 func (app *ChainlinkApplication) GetStatsPusher() synchronization.StatsPusher {
 	return app.StatsPusher
 }
@@ -395,7 +414,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	return nil
 }
 
-func (app *ChainlinkApplication) AddJobV2(ctx context.Context, job job.Spec, name null.String) (int32, error) {
+func (app *ChainlinkApplication) AddJobV2(ctx context.Context, job job.SpecDB, name null.String) (int32, error) {
 	return app.jobSpawner.CreateJob(ctx, job, name)
 }
 

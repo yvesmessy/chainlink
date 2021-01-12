@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/jinzhu/gorm"
@@ -16,34 +18,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
-
-const JobType job.Type = "offchainreporting"
-
-func RegisterJobType(
-	db *gorm.DB,
-	jobORM job.ORM,
-	config *orm.Config,
-	keyStore *KeyStore,
-	jobSpawner job.Spawner,
-	pipelineRunner pipeline.Runner,
-	ethClient eth.Client,
-	logBroadcaster log.Broadcaster,
-	peerWrapper *SingletonPeerWrapper,
-) {
-	jobSpawner.RegisterDelegate(
-		NewJobSpawnerDelegate(db, jobORM, config, keyStore, pipelineRunner, ethClient, logBroadcaster, peerWrapper),
-	)
-}
 
 type jobSpawnerDelegate struct {
 	db             *gorm.DB
@@ -70,37 +52,14 @@ func NewJobSpawnerDelegate(
 }
 
 func (d jobSpawnerDelegate) JobType() job.Type {
-	return JobType
+	return job.OffchainReporting
 }
 
-func (d jobSpawnerDelegate) ToDBRow(spec job.Spec) models.JobSpecV2 {
-	concreteSpec, ok := spec.(OracleSpec)
-	if !ok {
-		panic(fmt.Sprintf("expected an offchainreporting.OracleSpec, got %T", spec))
+func (d jobSpawnerDelegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, err error) {
+	if jobSpec.OffchainreportingOracleSpec == nil {
+		return nil, errors.Errorf("offchainreporting.jobSpawnerDelegate expects an *job.OffchainreportingOracleSpec to be present, got %v", jobSpec)
 	}
-	return models.JobSpecV2{
-		OffchainreportingOracleSpec: &concreteSpec.OffchainReportingOracleSpec,
-		Type:                        string(JobType),
-		SchemaVersion:               concreteSpec.SchemaVersion,
-		MaxTaskDuration:             concreteSpec.MaxTaskDuration,
-	}
-}
-
-func (d jobSpawnerDelegate) FromDBRow(spec models.JobSpecV2) job.Spec {
-	if spec.OffchainreportingOracleSpec == nil {
-		return nil
-	}
-	return &OracleSpec{
-		OffchainReportingOracleSpec: *spec.OffchainreportingOracleSpec,
-		jobID:                       spec.ID,
-	}
-}
-
-func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Service, err error) {
-	concreteSpec, is := spec.(*OracleSpec)
-	if !is {
-		return nil, errors.Errorf("offchainreporting.jobSpawnerDelegate expects an *offchainreporting.OracleSpec, got %T", spec)
-	}
+	concreteSpec := jobSpec.OffchainreportingOracleSpec
 
 	contractFilterer, err := offchainaggregator.NewOffchainAggregatorFilterer(concreteSpec.ContractAddress.Address(), d.ethClient)
 	if err != nil {
@@ -118,7 +77,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 		contractCaller,
 		d.ethClient,
 		d.logBroadcaster,
-		concreteSpec.JobID(),
+		jobSpec.ID,
 		*logger.Default,
 	)
 	if err != nil {
@@ -144,9 +103,9 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 
 	loggerWith := logger.CreateLogger(logger.Default.With(
 		"contractAddress", concreteSpec.ContractAddress,
-		"jobID", concreteSpec.jobID))
+		"jobID", jobSpec.ID))
 	ocrLogger := NewLogger(loggerWith, d.config.OCRTraceLogging(), func(msg string) {
-		d.jobORM.RecordError(context.Background(), spec.JobID(), msg)
+		d.jobORM.RecordError(context.Background(), jobSpec.ID, msg)
 	})
 
 	var endpointURL *url.URL
@@ -222,7 +181,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database:                     NewDB(d.db.DB(), concreteSpec.ID),
-			Datasource:                   dataSource{jobID: concreteSpec.JobID(), pipelineRunner: d.pipelineRunner},
+			Datasource:                   dataSource{jobID: jobSpec.ID, pipelineRunner: d.pipelineRunner},
 			LocalConfig:                  lc,
 			ContractTransmitter:          contractTransmitter,
 			ContractConfigTracker:        ocrContract,

@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
+
 	"github.com/stretchr/testify/mock"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
@@ -182,6 +184,18 @@ func NewRandomInt64() int64 {
 	return id
 }
 
+func MustRandomBytes(t *testing.T, l int) (b []byte) {
+	t.Helper()
+
+	b = make([]byte, l)
+	/* #nosec G404 */
+	_, err := rand.Read(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
 // NewTestConfig returns a test configuration
 func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	t.Helper()
@@ -216,6 +230,10 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	rawConfig.Set("BALANCE_MONITOR_ENABLED", "false")
 	rawConfig.Set("P2P_LISTEN_PORT", "12345")
 	rawConfig.Set("P2P_PEER_ID", DefaultP2PPeerID.String())
+	rawConfig.Set("DATABASE_TIMEOUT", "5s")
+	rawConfig.Set("GLOBAL_LOCK_RETRY_INTERVAL", "10ms")
+	rawConfig.Set("ORM_MAX_OPEN_CONNS", "5")
+	rawConfig.Set("ORM_MAX_IDLE_CONNS", "2")
 	rawConfig.SecretGenerator = mockSecretGenerator{}
 	config := TestConfig{t: t, Config: rawConfig}
 	return &config
@@ -778,7 +796,7 @@ func CreateSpecViaWeb(t testing.TB, app *TestApplication, spec string) models.Jo
 	return createdJob
 }
 
-func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) models.JobSpecV2 {
+func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) job.SpecDB {
 	t.Helper()
 
 	client := app.NewHTTPClient()
@@ -786,7 +804,7 @@ func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) models.Job
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
 
-	var createdJob models.JobSpecV2
+	var createdJob job.SpecDB
 	err := ParseJSONAPIResponse(t, resp, &createdJob)
 	require.NoError(t, err)
 	return createdJob

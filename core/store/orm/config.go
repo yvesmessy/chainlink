@@ -201,6 +201,16 @@ func (c Config) AllowOrigins() string {
 	return c.viper.GetString(EnvVarName("AllowOrigins"))
 }
 
+// AuthenticatedRateLimit defines the threshold to which requests authenticated requests get limited
+func (c Config) AuthenticatedRateLimit() int64 {
+	return c.viper.GetInt64(EnvVarName("AuthenticatedRateLimit"))
+}
+
+// AuthenticatedRateLimitPeriod defines the period to which authenticated requests get limited
+func (c Config) AuthenticatedRateLimitPeriod() models.Duration {
+	return models.MustMakeDuration(c.getWithFallback("AuthenticatedRateLimitPeriod", parseDuration).(time.Duration))
+}
+
 // BalanceMonitorEnabled enables the balance monitor
 func (c Config) BalanceMonitorEnabled() bool {
 	return c.viper.GetBool(EnvVarName("BalanceMonitorEnabled"))
@@ -242,6 +252,11 @@ func (c Config) DatabaseMaximumTxDuration() time.Duration {
 // DatabaseTimeout represents how long to tolerate non response from the DB.
 func (c Config) DatabaseTimeout() models.Duration {
 	return models.MustMakeDuration(c.getWithFallback("DatabaseTimeout", parseDuration).(time.Duration))
+}
+
+// GlobalLockRetryInterval represents how long to wait before trying again to get the global advisory lock.
+func (c Config) GlobalLockRetryInterval() models.Duration {
+	return models.MustMakeDuration(c.getWithFallback("GlobalLockRetryInterval", parseDuration).(time.Duration))
 }
 
 // DatabaseURL configures the URL for chainlink to connect to. This must be
@@ -640,6 +655,14 @@ func (c Config) OCRKeyBundleID(override *models.Sha256Hash) (models.Sha256Hash, 
 	return models.Sha256Hash{}, errors.Wrap(ErrUnset, "OCR_KEY_BUNDLE_ID")
 }
 
+func (c Config) ORMMaxOpenConns() int {
+	return int(c.getWithFallback("ORMMaxOpenConns", parseUint16).(uint16))
+}
+
+func (c Config) ORMMaxIdleConns() int {
+	return int(c.getWithFallback("ORMMaxIdleConns", parseUint16).(uint16))
+}
+
 // OperatorContractAddress represents the address where the Operator.sol
 // contract is deployed, this is used for filtering RunLog requests
 func (c Config) OperatorContractAddress() common.Address {
@@ -830,6 +853,16 @@ func (c Config) TxAttemptLimit() uint16 {
 // TLSRedirect forces TLS redirect for unencrypted connections
 func (c Config) TLSRedirect() bool {
 	return c.viper.GetBool(EnvVarName("TLSRedirect"))
+}
+
+// UnAuthenticatedRateLimit defines the threshold to which requests unauthenticated requests get limited
+func (c Config) UnAuthenticatedRateLimit() int64 {
+	return c.viper.GetInt64(EnvVarName("UnAuthenticatedRateLimit"))
+}
+
+// UnAuthenticatedRateLimitPeriod defines the period to which unauthenticated requests get limited
+func (c Config) UnAuthenticatedRateLimitPeriod() models.Duration {
+	return models.MustMakeDuration(c.getWithFallback("UnAuthenticatedRateLimitPeriod", parseDuration).(time.Duration))
 }
 
 // KeysDir returns the path of the keys directory (used for keystore files).
