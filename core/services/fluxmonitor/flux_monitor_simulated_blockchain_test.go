@@ -14,8 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -572,39 +570,51 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	}
 }
 
-func TestFluxMonitor_LatestRoundData(t *testing.T) {
+func TestFluxMonitor_InvalidSubmission(t *testing.T) {
+	// Comments starting with "-" describe the steps this test executes.
 	key := cltest.MustGenerateRandomKey(t)
 	fa := setupFluxAggregatorUniverse(t, key)
-
-	oracleList := []common.Address{fa.neil.From}
-	_, err := fa.aggregatorContract.ChangeOracles(fa.sergey, emptyList, oracleList, oracleList, 1, 1, 0)
+	oracleList := []common.Address{fa.neil.From, fa.ned.From, fa.nallory.From}
+	_, err := fa.aggregatorContract.ChangeOracles(fa.sergey, emptyList, oracleList, oracleList, 1, 3, 2)
 	assert.NoError(t, err, "failed to add oracles to aggregator")
 	fa.backend.Commit()
-	checkOraclesAdded(t, fa, oracleList)
 
-	// must create at least 1 round
-	submitAnswer(t, answerParams{
-		fa:              &fa,
-		roundId:         1,
-		answer:          100,
-		from:            fa.neil,
-		isNewRound:      true,
-		completesAnswer: false,
-	})
-
+	// Set up chainlink app
 	config, cfgCleanup := cltest.NewConfig(t)
+	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
+	config.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
+	config.Config.Set("MIN_OUTGOING_CONFIRMATIONS", "2")
+	config.Config.Set("MIN_OUTGOING_CONFIRMATIONS", "2")
+	config.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", "100")
 	defer cfgCleanup()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend, key)
 	defer cleanup()
-	client := app.Store.EthClient
+	require.NoError(t, app.StartAndConnect())
 
-	lb := new(mocks.LogBroadcaster)
-	wrappedFA, err := contracts.NewFluxAggregator(fa.aggregatorContractAddress, client, lb)
-	require.NoError(t, err)
+	// Report a price that is above the maximum allowed value,
+	// causing it to revert.
+	reportPrice := int64(1000000000000)
+	priceResponse := func() string {
+		return fmt.Sprintf(`{"data":{"result": %d}}`, atomic.LoadInt64(&reportPrice))
+	}
+	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t, priceResponse)
+	defer mockServer.Close()
+	buffer := cltest.MustReadFile(t, "../../internal/testdata/flux_monitor_job.json")
+	var job models.JobSpec
+	require.NoError(t, json.Unmarshal(buffer, &job))
+	initr := &job.Initiators[0]
+	initr.InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
+	initr.InitiatorParams.PollTimer.Period = models.MustMakeDuration(100 * time.Millisecond)
+	initr.InitiatorParams.Address = fa.aggregatorContractAddress
 
-	roundData, err := wrappedFA.LatestRoundData()
-	require.NoError(t, err)
-
-	assert.Equal(t, big.NewInt(1), roundData.RoundID)
-	assert.Equal(t, big.NewInt(100), roundData.Answer)
+	j := cltest.CreateJobSpecViaWeb(t, app, job)
+	go func() {
+		for {
+			fa.backend.Commit()
+			time.Sleep(500 * time.Millisecond)
+		}
+	}()
+	// We should see a spec error because the value is too large to submit on-chain.
+	jse := cltest.WaitForSpecError(t, app.Store, *j.ID, 1)
+	assert.Contains(t, jse[0].Description, "Polled value is outside acceptable range")
 }

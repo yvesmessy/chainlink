@@ -13,6 +13,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 
 	"github.com/gobuffalo/packr"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -33,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 )
@@ -131,10 +133,12 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	statsPusher := synchronization.StatsPusher(&synchronization.NoopStatsPusher{})
+	monitoringEndpoint := ocrtypes.MonitoringEndpoint(&telemetry.NoopAgent{})
 
 	if config.ExplorerURL() != nil {
 		explorerClient = synchronization.NewExplorerClient(config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret())
 		statsPusher = synchronization.NewStatsPusher(store.DB, explorerClient)
+		monitoringEndpoint = telemetry.NewAgent(explorerClient)
 	}
 
 	runExecutor := services.NewRunExecutor(store, statsPusher)
@@ -177,7 +181,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Debug("Off-chain reporting enabled")
 		concretePW := offchainreporting.NewSingletonPeerWrapper(store.OCRKeyStore, config, store.DB)
 		subservices = append(subservices, concretePW)
-		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(store.DB, jobORM, config, store.OCRKeyStore, pipelineRunner, ethClient, logBroadcaster, concretePW)
+		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(store.DB, jobORM, config, store.OCRKeyStore, pipelineRunner, ethClient, logBroadcaster, concretePW, monitoringEndpoint)
 	} else {
 		logger.Debug("Off-chain reporting disabled")
 	}
@@ -446,8 +450,11 @@ func (app *ChainlinkApplication) AwaitRun(ctx context.Context, runID int64) erro
 
 // ArchiveJob silences the job from the system, preventing future job runs.
 // It is idempotent and can be run as many times as you like.
-func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) (err error) {
-	_ = app.JobSubscriber.RemoveJob(ID)
+func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) error {
+	err := app.JobSubscriber.RemoveJob(ID)
+	if err != nil {
+		logger.Warnw("Error removing job from JobSubscriber", "error", err)
+	}
 	app.FluxMonitor.RemoveJob(ID)
 
 	if err = app.ExternalInitiatorManager.DeleteJob(app.Store.DB, ID); err != nil {

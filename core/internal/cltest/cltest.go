@@ -33,11 +33,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -49,10 +51,13 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/DATA-DOG/go-txdb"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/gin-gonic/gin"
@@ -98,15 +103,14 @@ const (
 )
 
 var (
-	DefaultP2PPeerID     p2ppeer.ID
-	NonExistentP2PPeerID p2ppeer.ID
+	DefaultP2PPeerID     models.PeerID
+	NonExistentP2PPeerID models.PeerID
 	// DefaultOCRKeyBundleIDSha256 is the ID of the fixture ocr key bundle
 	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
+	FluxAggAddress              = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+	storeCounter                uint64
+	minimumContractPayment      = assets.NewLink(100)
 )
-
-var storeCounter uint64
-
-var minimumContractPayment = assets.NewLink(100)
 
 func init() {
 	gin.SetMode(gin.TestMode)
@@ -141,14 +145,16 @@ func init() {
 	logger.Debugf("Using seed: %v", seed)
 	rand.Seed(seed)
 
-	DefaultP2PPeerID, err = p2ppeer.Decode(DefaultPeerID)
+	defaultP2PPeerID, err := p2ppeer.Decode(DefaultPeerID)
 	if err != nil {
 		panic(err)
 	}
-	NonExistentP2PPeerID, err = p2ppeer.Decode(NonExistentPeerID)
+	DefaultP2PPeerID = models.PeerID(defaultP2PPeerID)
+	nonExistentP2PPeerID, err := p2ppeer.Decode(NonExistentPeerID)
 	if err != nil {
 		panic(err)
 	}
+	NonExistentP2PPeerID = models.PeerID(nonExistentP2PPeerID)
 	DefaultOCRKeyBundleIDSha256, err = models.Sha256HashFromHex(DefaultOCRKeyBundleID)
 	if err != nil {
 		panic(err)
@@ -997,7 +1003,9 @@ func SendBlocksUntilComplete(
 	store *strpkg.Store,
 	jr models.JobRun,
 	blockCh chan<- *models.Head,
-	start int64) models.JobRun {
+	start int64,
+	gethClient *mocks.GethClient,
+) models.JobRun {
 	t.Helper()
 
 	var err error
@@ -1005,6 +1013,9 @@ func SendBlocksUntilComplete(
 	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
 		h := models.NewHead(big.NewInt(block), NewHash(), NewHash(), 0)
 		blockCh <- &h
+		gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(block),
+		}), nil)
 		block++
 		jr, err = store.Unscoped().FindJobRun(jr.ID)
 		assert.NoError(t, err)
@@ -1069,6 +1080,22 @@ func JobRunStaysPendingIncomingConfirmations(
 	return JobRunStays(t, store, jr, models.RunStatusPendingIncomingConfirmations)
 }
 
+// Polls until the passed in jobID has count number
+// of job spec errors.
+func WaitForSpecError(t *testing.T, store *strpkg.Store, jobID models.ID, count int) []models.JobSpecError {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+	var jse []models.JobSpecError
+	g.Eventually(func() []models.JobSpecError {
+		err := store.DB.
+			Where("job_spec_id = ?", jobID.String()).
+			Find(&jse).Error
+		assert.NoError(t, err)
+		return jse
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(count))
+	return jse
+}
+
 // WaitForRuns waits for the wanted number of runs then returns a slice of the JobRuns
 func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
 	t.Helper()
@@ -1100,7 +1127,7 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, jo job.ORM, 
 		prs, _, err := jo.PipelineRunsByJobID(jobID, 0, 1000)
 		assert.NoError(t, err)
 		for i := range prs {
-			if prs[i].Outputs != nil {
+			if !prs[i].Outputs.Null {
 				errs, err := prs[i].Errors.MarshalJSON()
 				assert.NoError(t, err)
 				if string(errs) != "[null]" {
@@ -1492,6 +1519,39 @@ func MustResultString(t *testing.T, input models.RunResult) string {
 	return result.String()
 }
 
+// GenericEncode eth encodes values based on the provided types
+func GenericEncode(types []string, values ...interface{}) ([]byte, error) {
+	if len(values) != len(types) {
+		return nil, errors.New("must include same number of values as types")
+	}
+	var args abi.Arguments
+	for _, t := range types {
+		ty, _ := abi.NewType(t, "", nil)
+		args = append(args, abi.Argument{Type: ty})
+	}
+	out, err := args.PackValues(values)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func MustGenericEncode(types []string, values ...interface{}) []byte {
+	if len(values) != len(types) {
+		panic("must include same number of values as types")
+	}
+	var args abi.Arguments
+	for _, t := range types {
+		ty, _ := abi.NewType(t, "", nil)
+		args = append(args, abi.Argument{Type: ty})
+	}
+	out, err := args.PackValues(values)
+	if err != nil {
+		panic(err)
+	}
+	return out
+}
+
 func MakeRoundStateReturnData(
 	roundID uint64,
 	eligible bool,
@@ -1511,6 +1571,23 @@ func MakeRoundStateReturnData(
 	data = append(data, utils.EVMWordUint64(oracleCount)...)
 	data = append(data, utils.EVMWordUint64(paymentAmount)...)
 	return data
+}
+
+var fluxAggregatorABI = contracts.MustGetABI(flux_aggregator_wrapper.FluxAggregatorABI)
+
+func MockFluxAggCall(client *mocks.GethClient, address common.Address, funcName string) *mock.Call {
+	funcSig := hexutil.Encode(fluxAggregatorABI.Methods[funcName].ID)
+	if len(funcSig) != 10 {
+		panic(fmt.Sprintf("Unable to find FluxAgg function with name %s", funcName))
+	}
+	return client.On(
+		"CallContract",
+		mock.Anything,
+		mock.MatchedBy(func(callArgs ethereum.CallMsg) bool {
+			return *callArgs.To == address &&
+				hexutil.Encode(callArgs.Data)[0:10] == funcSig
+		}),
+		mock.Anything)
 }
 
 // EthereumLogIterator is the interface provided by gethwrapper representations of EVM
@@ -1605,4 +1682,13 @@ func MustNewKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey, chainID int64) 
 	require.NoError(t, err)
 
 	return transactor
+}
+
+func MustNewJSONSerializable(t *testing.T, s string) pipeline.JSONSerializable {
+	t.Helper()
+
+	js := new(pipeline.JSONSerializable)
+	err := js.UnmarshalJSON([]byte(s))
+	require.NoError(t, err)
+	return *js
 }

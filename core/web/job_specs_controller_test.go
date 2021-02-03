@@ -3,12 +3,14 @@ package web_test
 import (
 	"bytes"
 	"encoding/json"
+	"math/big"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/mock"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -394,7 +396,20 @@ func TestJobSpecsController_Create_FluxMonitor_enabled(t *testing.T) {
 		eth.NewClientWith(rpcClient, gethClient),
 	)
 	defer cleanup()
-	rpcClient.On("Call", mock.Anything, "eth_call", mock.Anything, "latest").Return(nil)
+
+	getOraclesResult, err := cltest.GenericEncode([]string{"address[]"}, []common.Address{})
+	require.NoError(t, err)
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "getOracles").
+		Return(getOraclesResult, nil)
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "latestRoundData").
+		Return(nil, errors.New("first round"))
+	result := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, 1000, 100, 1)
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "oracleRoundState").
+		Return(result, nil).Maybe()
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "minSubmissionValue").
+		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(0)), nil)
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "maxSubmissionValue").
+		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(10000000)), nil)
 
 	require.NoError(t, app.Start())
 
@@ -418,7 +433,20 @@ func TestJobSpecsController_Create_FluxMonitor_Bridge(t *testing.T) {
 		eth.NewClientWith(rpcClient, gethClient),
 	)
 	defer cleanup()
-	rpcClient.On("Call", mock.Anything, "eth_call", mock.Anything, "latest").Return(nil)
+
+	getOraclesResult, err := cltest.GenericEncode([]string{"address[]"}, []common.Address{})
+	require.NoError(t, err)
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "getOracles").
+		Return(getOraclesResult, nil)
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "latestRoundData").
+		Return(nil, errors.New("first round"))
+	result := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, 1000, 100, 1)
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "oracleRoundState").
+		Return(result, nil).Maybe()
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "minSubmissionValue").
+		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(0)), nil)
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "maxSubmissionValue").
+		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(10000000)), nil)
 
 	require.NoError(t, app.Start())
 

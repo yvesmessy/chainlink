@@ -8,7 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/stretchr/testify/mock"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 
 	"gopkg.in/guregu/null.v4"
 
@@ -17,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,6 +30,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
+
+var monitoringEndpoint = ocrtypes.MonitoringEndpoint(&telemetry.NoopAgent{})
 
 func TestRunner(t *testing.T) {
 	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "pipeline_runner", true, true)
@@ -37,7 +44,7 @@ func TestRunner(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, config, eventBroadcaster)
 	runner := pipeline.NewRunner(pipelineORM, config)
-	jobORM := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	jobORM := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer jobORM.Close()
 
 	runner.Start()
@@ -45,6 +52,14 @@ func TestRunner(t *testing.T) {
 
 	key := cltest.MustInsertRandomKey(t, db, 0)
 	transmitterAddress := key.Address.Address()
+
+	rpc, geth, _, _ := cltest.NewEthMocks(t)
+	rpc.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
+		Run(func(args mock.Arguments) {
+			head := args.Get(1).(**models.Head)
+			*head = cltest.Head(10)
+		}).
+		Return(nil)
 
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
@@ -341,9 +356,10 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
+			eth.NewClientWith(rpc, geth),
 			nil,
 			nil,
-			nil)
+			monitoringEndpoint)
 		_, err = sd.ServicesForSpec(jb)
 		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
 		require.Error(t, err)
@@ -385,9 +401,10 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			nil,
+			eth.NewClientWith(rpc, geth),
 			nil,
 			pw,
+			monitoringEndpoint,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -446,9 +463,10 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
+			eth.NewClientWith(rpc, geth),
 			nil,
-			nil,
-			pw)
+			pw,
+			monitoringEndpoint)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 	})
@@ -488,9 +506,10 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
+			eth.NewClientWith(rpc, geth),
 			nil,
-			nil,
-			pw)
+			pw,
+			monitoringEndpoint)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 	})
@@ -524,9 +543,10 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
+			eth.NewClientWith(rpc, geth),
 			nil,
-			nil,
-			pw)
+			pw,
+			monitoringEndpoint)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 	})
@@ -559,9 +579,10 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
+			eth.NewClientWith(rpc, geth),
 			nil,
-			nil,
-			pw)
+			pw,
+			monitoringEndpoint)
 		services, err := sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 
