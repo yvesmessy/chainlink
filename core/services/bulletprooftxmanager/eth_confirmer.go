@@ -19,7 +19,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )

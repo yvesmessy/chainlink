@@ -19,7 +19,7 @@ import (
 	gethAccounts "github.com/ethereum/go-ethereum/accounts"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 	"github.com/pkg/errors"
 )
 

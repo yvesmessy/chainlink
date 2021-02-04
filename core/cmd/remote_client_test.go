@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/cmd"

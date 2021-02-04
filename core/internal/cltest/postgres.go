@@ -13,7 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
 
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"

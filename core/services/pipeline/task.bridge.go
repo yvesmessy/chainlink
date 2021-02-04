@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"

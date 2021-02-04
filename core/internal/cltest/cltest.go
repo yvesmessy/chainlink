@@ -65,7 +65,7 @@ import (
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"

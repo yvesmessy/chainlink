@@ -3,7 +3,7 @@ package dbutil
 import (
 	"strings"
 
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 )
 
 func IsPostgresURL(url string) bool {
@@ -12,7 +12,7 @@ func IsPostgresURL(url string) bool {
 
 // IsPostgres returns true if the underlying database is postgres.
 func IsPostgres(db *gorm.DB) bool {
-	return db.Dialect().GetName() == "postgres"
+	return db.Dialector.Name() == "postgres"
 }
 
 // SetTimezone sets the time zone to UTC

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"

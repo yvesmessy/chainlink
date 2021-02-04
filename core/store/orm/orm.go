@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/subtle"
-	"database/sql"
 	"encoding"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -685,8 +685,7 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID models.ID, fromAddress co
 func (orm *ORM) EthTransactionsWithAttempts(offset, limit int) ([]models.EthTx, int, error) {
 	ethTXIDs := orm.DB.
 		Select("DISTINCT eth_tx_id").
-		Table("eth_tx_attempts").
-		QueryExpr()
+		Table("eth_tx_attempts")
 
 	var count int64
 	err := orm.DB.
@@ -1254,10 +1253,10 @@ func (orm *ORM) HasConsumedLog(blockHash common.Hash, logIndex uint, jobID *mode
 		")"
 
 	var exists bool
-	err := orm.DB.DB().
-		QueryRow(query, blockHash, logIndex, jobID).
-		Scan(&exists)
-	if err != nil && err != sql.ErrNoRows {
+	err := orm.DB.
+		Raw(query, blockHash, logIndex, jobID).
+		Scan(&exists).Error
+	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		return false, err
 	}
 	return exists, nil
@@ -1273,10 +1272,10 @@ func (orm *ORM) HasConsumedLogV2(blockHash common.Hash, logIndex uint, jobID int
 		")"
 
 	var exists bool
-	err := orm.DB.DB().
-		QueryRow(query, blockHash, logIndex, jobID).
-		Scan(&exists)
-	if err != nil && err != sql.ErrNoRows {
+	err := orm.DB.
+		Raw(query, blockHash, logIndex, jobID).
+		Scan(&exists).Error
+	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		return false, err
 	}
 	return exists, nil
@@ -1541,11 +1540,18 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 		// txdb.Register
 		ct.uri = models.NewID().String()
 	}
-
+	newLogger := gormlogger.New(
+	  log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
+	  gormlogger.Config{
+		SlowThreshold: time.Second,   // Slow SQL threshold
+		LogLevel:      gormlogger.Silent, // Log level
+		Colorful:      false,         // Disable color
+	  },
+	)
 	dsn := "host=localhost user=gorm password=gorm dbname=gorm port=9920 sslmode=disable TimeZone=Asia/Shanghai"
 	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
 		DSN: dsn,
-	}), &gorm.Config{})
+	}), &gorm.Config{Logger: newLogger})
 	//db, err := gorm.Open(string(ct.dialect), ct.uri)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", ct.uri)

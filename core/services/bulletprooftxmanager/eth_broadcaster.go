@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 	"github.com/pkg/errors"
 )
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/url"
+	"reflect"
 	"sync"
 	"time"
 
@@ -11,11 +12,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	"github.com/jinzhu/gorm"
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"gorm.io/gorm"
 )
 
 var (
@@ -240,35 +241,44 @@ func (sp *statsPusher) syncEvent(event models.SyncEvent) error {
 	return nil
 }
 
-func createSyncEventWithStatsPusher(sp StatsPusher) func(*gorm.Scope) {
-	return func(scope *gorm.Scope) {
-		if scope.HasError() {
+func createSyncEventWithStatsPusher(sp StatsPusher) func(s *gorm.DB) {
+	return func(s *gorm.DB) {
+		//if scope.HasError() {
+		//	return
+		//}
+		if s.Error != nil {
 			return
 		}
 
-		if scope.TableName() != "job_runs" {
+		if s.Statement.Table != "job_runs" {
 			return
 		}
 
-		run, ok := scope.Value.(*models.JobRun)
-		if !ok {
+		//run, ok := scope.Value.(*models.JobRun)
+		//if !ok {
+		//	logger.Error("Invariant violated scope.Value is not type *models.JobRun, but TableName was job_runes")
+		//	return
+		//}
+		if s.Statement.ReflectValue.Type() != reflect.TypeOf(&models.JobRun{}) {
 			logger.Error("Invariant violated scope.Value is not type *models.JobRun, but TableName was job_runes")
 			return
 		}
+		var run *models.JobRun
+		s.Statement.ReflectValue.Set(reflect.ValueOf(run))
 
 		presenter := SyncJobRunPresenter{run}
 		bodyBytes, err := json.Marshal(presenter)
 		if err != nil {
-			_ = scope.Err(errors.Wrap(err, "createSyncEvent#json.Marshal failed"))
+			s.Error = errors.Wrap(err, "createSyncEvent#json.Marshal failed")
 			return
 		}
 
 		event := models.SyncEvent{
 			Body: string(bodyBytes),
 		}
-		err = scope.DB().Create(&event).Error
+		err = s.Create(&event).Error
 		if err != nil {
-			_ = scope.Err(errors.Wrap(err, "createSyncEvent#Create failed"))
+			s.Error = errors.Wrap(err, "createSyncEvent#Create failed")
 			return
 		}
 	}

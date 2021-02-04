@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	storm "github.com/smartcontractkit/chainlink/core/store/orm"
 
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 
@@ -203,10 +203,11 @@ func (o *orm) CheckForDeletedJobs(ctx context.Context) (deletedJobIDs []int32, e
 	defer o.claimedJobsMu.RUnlock()
 	var claimedJobIDs []int32 = o.claimedJobIDs()
 
-	rows, err := o.db.DB().QueryContext(ctx, `SELECT id FROM jobs WHERE id = ANY($1)`, pq.Array(claimedJobIDs))
-	if err != nil {
+	r := o.db.Exec(`SELECT id FROM jobs WHERE id = ANY($1)`, pq.Array(claimedJobIDs))
+	if r.Error != nil {
 		return nil, errors.Wrap(err, "could not query for jobs")
 	}
+	rows, err := r.Rows()
 	defer logger.ErrorIfCalling(rows.Close)
 
 	foundJobs := make(map[int32]struct{})
@@ -319,7 +320,7 @@ func (o *orm) FindJob(id int32) (SpecDB, error) {
 // PipelineRunsByJobID returns pipeline runs for a job
 func (o *orm) PipelineRunsByJobID(jobID int32, offset, size int) ([]pipeline.Run, int, error) {
 	var pipelineRuns []pipeline.Run
-	var count int
+	var count int64
 	err := o.db.
 		Model(pipeline.Run{}).
 		Joins("INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id").
@@ -347,5 +348,5 @@ func (o *orm) PipelineRunsByJobID(jobID int32, offset, size int) ([]pipeline.Run
 		Find(&pipelineRuns).
 		Error
 
-	return pipelineRuns, count, err
+	return pipelineRuns, int(count), err
 }

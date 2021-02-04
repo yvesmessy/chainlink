@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

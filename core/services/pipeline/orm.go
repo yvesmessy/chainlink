@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -147,7 +147,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
             SELECT pipeline_spec_id, $1, NOW()
             FROM jobs WHERE id = $2
             RETURNING *`, JSONSerializable{Val: meta}, jobID).Scan(&run).Error
-		if gorm.IsRecordNotFoundError(err) {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.Errorf("no job found with id %v (most likely it was deleted)", jobID)
 		} else if err != nil {
 			return errors.Wrap(err, "could not create pipeline run")
@@ -181,7 +181,7 @@ func (o *orm) ProcessNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) (
 		err = o.processNextUnfinishedRun(ctx, fn)
 		// "Record not found" errors mean that we're done with all unclaimed
 		// job runs.
-		if postgres.IsRecordNotFound(err) {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			anyRemaining = false
 			retry = false
 			err = nil

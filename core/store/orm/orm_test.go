@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"

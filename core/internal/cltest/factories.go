@@ -17,7 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	pbormanuuid "github.com/pborman/uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
