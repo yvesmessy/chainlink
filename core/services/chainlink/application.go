@@ -13,7 +13,7 @@ import (
 	"github.com/coreos/go-semver/semver"
 	"github.com/smartcontractkit/chainlink/core/static"
 
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"

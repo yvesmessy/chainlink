@@ -14,8 +14,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
+	//"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
+	gormpostgres "gorm.io/driver/postgres"
+	gormlogger "gorm.io/gorm/logger"
+	//_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
@@ -104,27 +107,22 @@ func displayTimeout(timeout models.Duration) string {
 	return timeout.String()
 }
 
-func ignoreRecordNotFound(db *gorm.DB) error {
-	var merr error
-	for _, e := range db.GetErrors() {
-		if e != gorm.ErrRecordNotFound {
-			merr = multierr.Append(merr, e)
-		}
-	}
-	return merr
-}
-
 // SetLogging turns on SQL statement logging
 func (orm *ORM) SetLogging(enabled bool) {
-	orm.DB.LogMode(enabled)
+	if enabled {
+		orm.DB.Logger.LogMode(gormlogger.Info)
+		return
+	}
+	orm.DB.Logger.LogMode(gormlogger.Silent)
 }
 
 // Close closes the underlying database connection.
 func (orm *ORM) Close() error {
 	var err error
+	db, _ := orm.DB.DB()
 	orm.closeOnce.Do(func() {
 		err = multierr.Combine(
-			orm.DB.Close(),
+			db.Close(),
 			orm.lockingStrategy.Unlock(orm.advisoryLockTimeout),
 		)
 	})
@@ -423,7 +421,7 @@ func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error 
 		return err
 	}
 	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
-		scope := orm.DB.Limit(limit).Offset(offset)
+		scope := orm.DB.Limit(int(limit)).Offset(int(offset))
 		if len(initrTypes) > 0 {
 			scope = scope.Where("initiators.type IN (?)", initrTypes)
 			if dbutil.IsPostgres(orm.DB) {
@@ -487,12 +485,12 @@ func (orm *ORM) JobRunsCountFor(jobSpecID *models.ID) (int, error) {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return 0, err
 	}
-	var count int
+	var count int64
 	err := orm.DB.
 		Model(&models.JobRun{}).
 		Where("job_spec_id = ?", jobSpecID).
 		Count(&count).Error
-	return count, err
+	return int(count), err
 }
 
 // Sessions returns all sessions limited by the parameters.
@@ -622,9 +620,14 @@ func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
 	}
 	db := orm.DB
 	var taskSpec models.TaskSpec
-	rval := db.Where("type = ?", taskTypeName).First(&taskSpec)
-	found := !rval.RecordNotFound()
-	return found, ignoreRecordNotFound(rval)
+	err := db.Where("type = ?", taskTypeName).First(&taskSpec).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // IdempotentInsertEthTaskRunTx creates both eth_task_run_transaction and eth_tx in one hit
@@ -685,7 +688,7 @@ func (orm *ORM) EthTransactionsWithAttempts(offset, limit int) ([]models.EthTx, 
 		Table("eth_tx_attempts").
 		QueryExpr()
 
-	var count int
+	var count int64
 	err := orm.DB.
 		Table("eth_txes").
 		Where("id IN (?)", ethTXIDs).
@@ -703,14 +706,14 @@ func (orm *ORM) EthTransactionsWithAttempts(offset, limit int) ([]models.EthTx, 
 		Order("id desc").Limit(limit).Offset(offset).
 		Find(&txs).Error
 
-	return txs, count, err
+	return txs, int(count), err
 }
 
 // FindEthTaskRunTxByTaskRunID finds the EthTaskRunTx with its EthTxes and EthTxAttempts preloaded
 func (orm *ORM) FindEthTaskRunTxByTaskRunID(taskRunID uuid.UUID) (*models.EthTaskRunTx, error) {
 	etrt := &models.EthTaskRunTx{}
 	err := orm.DB.Preload("EthTx").First(etrt, "task_run_id = ?", &taskRunID).Error
-	if err != nil && gorm.IsRecordNotFoundError(err) {
+	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	return etrt, err
@@ -1158,7 +1161,7 @@ func (orm *ORM) KeyByAddress(address common.Address) (models.Key, error) {
 func (orm *ORM) KeyExists(address common.Address) (bool, error) {
 	var key models.Key
 	err := orm.DB.Where("address = ?", address).First(&key).Error
-	if gorm.IsRecordNotFoundError(err) {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return false, nil
 	}
 	return true, err
@@ -1424,8 +1427,8 @@ func (orm *ORM) CountOf(t interface{}) (int, error) {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return 0, err
 	}
-	var count int
-	return count, orm.DB.Model(t).Count(&count).Error
+	var count int64
+	return int(count), orm.DB.Model(t).Count(&count).Error
 }
 
 func (orm *ORM) getRecords(collection interface{}, order string, offset, limit int) error {
@@ -1539,14 +1542,18 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 		ct.uri = models.NewID().String()
 	}
 
-	db, err := gorm.Open(string(ct.dialect), ct.uri)
+	dsn := "host=localhost user=gorm password=gorm dbname=gorm port=9920 sslmode=disable TimeZone=Asia/Shanghai"
+	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
+		DSN: dsn,
+	}), &gorm.Config{})
+	//db, err := gorm.Open(string(ct.dialect), ct.uri)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", ct.uri)
 	}
 
-	db.SetLogger(newOrmLogWrapper(logger.Default))
-	db.DB().SetMaxOpenConns(ct.maxOpenConns)
-	db.DB().SetMaxIdleConns(ct.maxIdleConns)
+	d, _ := db.DB()
+	d.SetMaxOpenConns(ct.maxOpenConns)
+	d.SetMaxIdleConns(ct.maxIdleConns)
 
 	if err = dbutil.SetTimezone(db); err != nil {
 		return nil, err

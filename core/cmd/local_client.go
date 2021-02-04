@@ -33,7 +33,7 @@ import (
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
 )

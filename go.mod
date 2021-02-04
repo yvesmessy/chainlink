@@ -2,6 +2,8 @@ module github.com/smartcontractkit/chainlink
 
 go 1.15
 
+replace github.com/jinzhu/gorm => gorm.io/gorm v1.20.12
+
 require (
 	github.com/DATA-DOG/go-txdb v0.1.3
 	github.com/Depado/ginprom v1.2.1-0.20200115153638-53bbba851bd8
@@ -62,4 +64,5 @@ require (
 	gonum.org/v1/gonum v0.8.2
 	gopkg.in/gormigrate.v1 v1.6.0
 	gopkg.in/guregu/null.v4 v4.0.0
+	gorm.io/gorm v1.20.12 // indirect
 )
