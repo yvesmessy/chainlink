@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	null "gopkg.in/guregu/null.v4"
+	"gorm.io/datatypes"
 )
 
 var (
@@ -27,8 +28,8 @@ var (
 // JobRun tracks the status of a job by holding its TaskRuns and the
 // Result of each Run.
 type JobRun struct {
-	ID             *ID          `json:"id" gorm:"primary_key;not null"`
-	JobSpecID      *ID          `json:"jobId"`
+	ID             *ID          `json:"id" gorm:"type:uuid;primary_key;not null"`
+	JobSpecID      *ID          `json:"jobId" gorm:"type:uuid"`
 	Result         RunResult    `json:"result" gorm:"foreignkey:ResultID;association_autoupdate:true;association_autocreate:true"`
 	ResultID       clnull.Int64 `json:"-"`
 	RunRequest     RunRequest   `json:"-" gorm:"foreignkey:RunRequestID;association_autoupdate:true;association_autocreate:true"`
@@ -228,19 +229,19 @@ type RunRequest struct {
 	Requester     *common.Address
 	CreatedAt     time.Time
 	Payment       *assets.Link
-	RequestParams JSON `gorm:"default: '{}';not null"`
+	RequestParams datatypes.JSON `gorm:"type:jsonb;default:'{}';not null"`
 }
 
 // NewRunRequest returns a new RunRequest instance.
 func NewRunRequest(requestParams JSON) *RunRequest {
-	return &RunRequest{CreatedAt: time.Now(), RequestParams: requestParams}
+	return &RunRequest{CreatedAt: time.Now(), RequestParams: requestParams.Bytes()}
 }
 
 // TaskRun stores the Task and represents the status of the
 // Task to be ran.
 type TaskRun struct {
-	ID                               *ID           `json:"id" gorm:"primary_key;not null"`
-	JobRunID                         *ID           `json:"-"`
+	ID                               *ID           `json:"id" gorm:"type:uuid;primary_key;not null"`
+	JobRunID                         *ID           `json:"-" gorm:"type:uuid"`
 	Result                           RunResult     `json:"result"`
 	ResultID                         clnull.Uint32 `json:"-"`
 	Status                           RunStatus     `json:"status" gorm:"default:'unstarted'"`

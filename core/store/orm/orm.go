@@ -475,7 +475,7 @@ func (orm *ORM) JobRunsFor(jobSpecID *models.ID, limit ...int) ([]models.JobRun,
 	}
 	err := orm.preloadJobRuns().
 		Limit(lim).
-		Where("job_spec_id = ?", jobSpecID).
+		Where("job_spec_id = ?", *jobSpecID).
 		Order("created_at desc").
 		Find(&runs).Error
 	return runs, err
@@ -1531,6 +1531,7 @@ func NewConnection(dialect DialectName, uri string, advisoryLockID int64, lockRe
 }
 
 func (ct Connection) initializeDatabase() (*gorm.DB, error) {
+	originalUri := ct.uri
 	if ct.transactionWrapped {
 		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
 		// should be encapsulated in it's own transaction, and thus needs its own
@@ -1549,9 +1550,9 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 			Colorful:      false,             // Disable color
 		},
 	)
-	dsn := "host=localhost user=gorm password=gorm dbname=gorm port=9920 sslmode=disable TimeZone=Asia/Shanghai"
+	//dsn := "host=localhost user=gorm password=gorm dbname=gorm port=9920 sslmode=disable TimeZone=Asia/Shanghai"
 	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
-		DSN: dsn,
+		DSN: originalUri,
 	}), &gorm.Config{Logger: newLogger})
 	//db, err := gorm.Open(string(ct.dialect), ct.uri)
 	if err != nil {

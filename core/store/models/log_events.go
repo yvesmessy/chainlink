@@ -224,7 +224,7 @@ func (le InitiatorLogEvent) RunRequest() (RunRequest, error) {
 		return RunRequest{}, err
 	}
 	return RunRequest{BlockHash: &le.Log.BlockHash, TxHash: &le.Log.TxHash,
-		RequestParams: requestParams}, nil
+		RequestParams: requestParams.Bytes()}, nil
 }
 
 // Validate returns true, no validation on this log event type.
@@ -352,7 +352,7 @@ func (le RunLogEvent) RunRequest() (RunRequest, error) {
 		BlockHash:     &le.Log.BlockHash,
 		Requester:     &requester,
 		Payment:       payment,
-		RequestParams: requestParams,
+		RequestParams: requestParams.Bytes(),
 	}, nil
 }
 

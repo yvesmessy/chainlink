@@ -76,7 +76,7 @@ func (le RandomnessLogEvent) RunRequest() (RunRequest, error) {
 		BlockHash:     &le.Log.BlockHash,
 		Requester:     &requester,
 		Payment:       parsedLog.Fee,
-		RequestParams: requestParams,
+		RequestParams: requestParams.Bytes(),
 	}, nil
 }
 

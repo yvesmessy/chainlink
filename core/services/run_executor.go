@@ -127,7 +127,8 @@ func validateOnMainChainOnce(validated bool, run *models.JobRun, taskRun *models
 func (re *runExecutor) executeTask(run *models.JobRun, taskRun models.TaskRun) models.RunOutput {
 	taskSpec := taskRun.TaskSpec
 
-	params, err := models.Merge(run.RunRequest.RequestParams, taskSpec.Params)
+	js, _ := models.ParseJSON(run.RunRequest.RequestParams)
+	params, err := models.Merge(js, taskSpec.Params)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
@@ -145,7 +146,7 @@ func (re *runExecutor) executeTask(run *models.JobRun, taskRun models.TaskRun) m
 		previousTaskInput = previousTaskRun.Result.Data
 	}
 
-	data, err := models.Merge(run.RunRequest.RequestParams, previousTaskInput, taskRun.Result.Data)
+	data, err := models.Merge(js, previousTaskInput, taskRun.Result.Data)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}

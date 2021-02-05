@@ -881,7 +881,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	// Check the FM price on completed run output
 	jr = cltest.SendBlocksUntilComplete(t, app.GetStore(), jr, newHeads, safe, gethClient)
 
-	requestParams := jr.RunRequest.RequestParams
+	requestParams, _  := models.ParseJSON(jr.RunRequest.RequestParams)
 	assert.Equal(t, "102", requestParams.Get("result").String())
 	assert.Equal(
 		t,
