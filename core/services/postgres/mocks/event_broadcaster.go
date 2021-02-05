@@ -3,8 +3,8 @@
 package mocks
 
 import (
-	gorm "gorm.io/gorm"
 	mock "github.com/stretchr/testify/mock"
+	gorm "gorm.io/gorm"
 
 	postgres "github.com/smartcontractkit/chainlink/core/services/postgres"
 )

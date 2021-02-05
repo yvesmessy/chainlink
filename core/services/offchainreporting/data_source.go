@@ -2,6 +2,7 @@ package offchainreporting
 
 import (
 	"context"
+
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"

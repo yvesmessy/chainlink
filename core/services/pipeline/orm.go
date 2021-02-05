@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"gorm.io/gorm"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -16,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore

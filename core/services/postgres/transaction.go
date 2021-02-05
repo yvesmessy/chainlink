@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"gorm.io/gorm"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 )
 
 // NOTE: In an ideal world the timeouts below would be set to something sane in

@@ -73,6 +73,6 @@ func TestMigrate_Migrations(t *testing.T) {
 	for _, table := range tables {
 		r := orm.DB.Exec("SELECT * from information_schema.tables where table_name = ?", table)
 		require.NoError(t, r.Error)
-		assert.False(t, r.RowsAffected > 0 , "table %v found", table)
+		assert.False(t, r.RowsAffected > 0, "table %v found", table)
 	}
 }

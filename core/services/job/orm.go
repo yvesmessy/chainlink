@@ -11,9 +11,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	storm "github.com/smartcontractkit/chainlink/core/store/orm"
 
-	"gorm.io/gorm"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"

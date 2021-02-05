@@ -21,10 +21,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"gorm.io/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 )
 
 func TestORM_AllNotFound(t *testing.T) {
@@ -870,9 +870,9 @@ func TestBulkDeleteRuns(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	var resultCount int
-	var taskCount int
-	var runCount int
+	var resultCount int64
+	var taskCount int64
+	var runCount int64
 	orm := store.ORM
 
 	err := orm.RawDB(func(db *gorm.DB) error {
@@ -1386,7 +1386,7 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 
 		// Ensure it didn't leave a stray EthTx hanging around
 		store.RawDB(func(db *gorm.DB) error {
-			var count int
+			var count int64
 			require.NoError(t, db.Table("eth_txes").Count(&count).Error)
 			assert.Equal(t, 1, count)
 			return nil

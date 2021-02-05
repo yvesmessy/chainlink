@@ -20,7 +20,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	sqldb, _  := store.DB.DB()
+	sqldb, _ := store.DB.DB()
 	configDigest := cltest.MakeConfigDigest(t)
 	key := cltest.MustInsertRandomKey(t, store.DB)
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, store, key.Address)

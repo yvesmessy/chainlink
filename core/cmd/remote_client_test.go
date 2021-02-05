@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 
 	"github.com/ethereum/go-ethereum/common"
-	"gorm.io/gorm"
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/cmd"
@@ -34,6 +33,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 )
 
 var (

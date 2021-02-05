@@ -65,7 +65,6 @@ import (
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
-	"gorm.io/gorm"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -73,6 +72,7 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zapcore"
 	null "gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 )
 
 const (

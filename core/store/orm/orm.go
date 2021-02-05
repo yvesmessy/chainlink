@@ -15,9 +15,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	//"github.com/jinzhu/gorm"
-	"gorm.io/gorm"
 	gormpostgres "gorm.io/driver/postgres"
+	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
+
 	//_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -316,7 +317,7 @@ func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 		Joins("JOIN job_specs ON job_runs.job_spec_id = job_specs.id").
 		Where("job_specs.id = ? AND job_runs.status = ? AND job_runs.finished_at IS NOT NULL", spec.ID, models.RunStatusCompleted)
 
-	if dbutil.IsPostgres(orm.DB) {
+	if dbutil.IsPostgresV2(orm.DB) {
 		query = query.Select("SUM(payment)")
 	} else {
 		query = query.Select("CAST(SUM(CAST(SUBSTR(payment, 1, 10) as BIGINT)) as varchar(255))")
@@ -424,7 +425,7 @@ func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error 
 		scope := orm.DB.Limit(int(limit)).Offset(int(offset))
 		if len(initrTypes) > 0 {
 			scope = scope.Where("initiators.type IN (?)", initrTypes)
-			if dbutil.IsPostgres(orm.DB) {
+			if dbutil.IsPostgresV2(orm.DB) {
 				scope = scope.Joins("JOIN initiators ON job_specs.id = initiators.job_spec_id::uuid")
 			} else {
 				scope = scope.Joins("JOIN initiators ON job_specs.id = initiators.job_spec_id")
@@ -1541,12 +1542,12 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 		ct.uri = models.NewID().String()
 	}
 	newLogger := gormlogger.New(
-	  log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
-	  gormlogger.Config{
-		SlowThreshold: time.Second,   // Slow SQL threshold
-		LogLevel:      gormlogger.Silent, // Log level
-		Colorful:      false,         // Disable color
-	  },
+		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
+		gormlogger.Config{
+			SlowThreshold: time.Second,       // Slow SQL threshold
+			LogLevel:      gormlogger.Silent, // Log level
+			Colorful:      false,             // Disable color
+		},
 	)
 	dsn := "host=localhost user=gorm password=gorm dbname=gorm port=9920 sslmode=disable TimeZone=Asia/Shanghai"
 	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{

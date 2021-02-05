@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	gormpostgres "gorm.io/driver/postgres"
 	"io/ioutil"
 	"math/big"
 	"net/url"
@@ -13,6 +12,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	gormpostgres "gorm.io/driver/postgres"
 
 	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
 
@@ -34,9 +35,9 @@ import (
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"gorm.io/gorm"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
+	"gorm.io/gorm"
 )
 
 // ownerPermsMask are the file permission bits reserved for owner.

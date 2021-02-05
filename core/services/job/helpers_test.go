@@ -9,10 +9,10 @@ import (
 
 	"gopkg.in/guregu/null.v4"
 
-	"gorm.io/gorm"
 	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 

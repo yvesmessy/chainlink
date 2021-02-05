@@ -6,7 +6,6 @@ import (
 	gormigrate "github.com/go-gormigrate/gormigrate/v2"
 )
 
-
 var Migrations []*gormigrate.Migration
 
 func Migrate(db *gorm.DB) error {

@@ -10,8 +10,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
-	"gorm.io/gorm"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"

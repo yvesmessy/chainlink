@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
-	"gorm.io/gorm"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 )
 
 // EthBroadcaster monitors eth_txes for transactions that need to
