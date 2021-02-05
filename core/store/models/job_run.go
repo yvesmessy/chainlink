@@ -229,7 +229,7 @@ type RunRequest struct {
 	Requester     *common.Address
 	CreatedAt     time.Time
 	Payment       *assets.Link
-	RequestParams datatypes.JSON `gorm:"type:jsonb;default:'{}';not null"`
+	RequestParams datatypes.JSON `gorm:"type:jsonb;default:'{}'"`
 }
 
 // NewRunRequest returns a new RunRequest instance.
