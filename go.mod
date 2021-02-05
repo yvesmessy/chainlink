@@ -2,8 +2,6 @@ module github.com/smartcontractkit/chainlink
 
 go 1.15
 
-replace github.com/jinzhu/gorm => gorm.io/gorm v1.20.12
-
 require (
 	github.com/DATA-DOG/go-txdb v0.1.3
 	github.com/Depado/ginprom v1.2.1-0.20200115153638-53bbba851bd8
@@ -21,6 +19,7 @@ require (
 	github.com/gin-contrib/size v0.0.0-20190528085907-355431950c57
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
 	github.com/gin-gonic/gin v1.6.0
+	github.com/go-gormigrate/gormigrate/v2 v2.0.0
 	github.com/gobuffalo/packr v1.30.1
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.1
@@ -64,5 +63,7 @@ require (
 	gonum.org/v1/gonum v0.8.2
 	gopkg.in/gormigrate.v1 v1.6.0
 	gopkg.in/guregu/null.v4 v4.0.0
-	gorm.io/gorm v1.20.12 // indirect
+	gorm.io/datatypes v1.0.0
+	gorm.io/driver/postgres v1.0.8
+	gorm.io/gorm v1.20.12
 )
