@@ -8,13 +8,14 @@ import (
 	"encoding"
 	"encoding/hex"
 	"fmt"
-	"github.com/lib/pq"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/lib/pq"
 
 	"gorm.io/gorm/clause"
 
@@ -342,12 +343,12 @@ func (orm *ORM) UpsertErrorFor(jobID *models.ID, description string) {
 	jse := models.NewJobSpecError(jobID, description)
 	err := orm.DB.
 		Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "job_spec_id"}, {Name: "description"}},
-		DoUpdates: clause.Assignments(map[string]interface{}{
-			"occurrences": gorm.Expr("occurrences + 1"),
-			"updated_at": "excluded.updated_at",
-		}),
-	}).
+			Columns: []clause.Column{{Name: "job_spec_id"}, {Name: "description"}},
+			DoUpdates: clause.Assignments(map[string]interface{}{
+				"occurrences": gorm.Expr("job_spec_errors.occurrences + 1"),
+				"updated_at":  gorm.Expr("excluded.updated_at"),
+			}),
+		}).
 		//Set(
 		//	"gorm:insert_option",
 		//	`ON CONFLICT (job_spec_id, description)
@@ -841,9 +842,9 @@ func (orm *ORM) DeleteUser() (models.User, error) {
 			return err
 		}
 
-		if err := dbtx.Delete(models.Session{}).Error; err != nil {
-			return err
-		}
+		//if err := dbtx.Delete(models.Session{}).Error; err != nil {
+		//	return err
+		//}
 
 		return nil
 	})
@@ -1037,7 +1038,12 @@ func (orm *ORM) CreateInitiator(initr *models.Initiator) error {
 // IdempotentInsertHead inserts a head only if the hash is new. Will do nothing if hash exists already.
 // No advisory lock required because this is thread safe.
 func (orm *ORM) IdempotentInsertHead(h models.Head) error {
-	err := orm.DB.Set("gorm:insert_option", "ON CONFLICT (hash) DO NOTHING").Create(&h).Error
+	err := orm.DB.
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "hash"}},
+			DoNothing: true,
+		}).Create(&h).Error
+	//Set("gorm:insert_option", "ON CONFLICT (hash) DO NOTHING").Create(&h).Error
 
 	if err != nil && err.Error() == "sql: no rows in result set" {
 		return nil
@@ -1575,7 +1581,7 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 	}
 	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
 		Conn: d,
-		DSN: originalUri,
+		DSN:  originalUri,
 	}), &gorm.Config{Logger: newLogger})
 	//db, err := gorm.Open(string(ct.dialect), ct.uri)
 	if err != nil {

@@ -3,10 +3,11 @@ package job
 import (
 	"context"
 	"fmt"
-	"github.com/jackc/pgconn"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/jackc/pgconn"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"

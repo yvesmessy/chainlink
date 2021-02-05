@@ -922,15 +922,15 @@ func TestBulkDeleteRuns(t *testing.T) {
 
 		err = db.Model(&models.JobRun{}).Count(&runCount).Error
 		assert.NoError(t, err)
-		assert.Equal(t, 3, runCount)
+		assert.Equal(t, 3, int(runCount))
 
 		err = db.Model(&models.TaskRun{}).Count(&taskCount).Error
 		assert.NoError(t, err)
-		assert.Equal(t, 3, taskCount)
+		assert.Equal(t, 3, int(taskCount))
 
 		err = db.Model(&models.RunResult{}).Count(&resultCount).Error
 		assert.NoError(t, err)
-		assert.Equal(t, 3, resultCount)
+		assert.Equal(t, 3, int(resultCount))
 
 		return nil
 	})

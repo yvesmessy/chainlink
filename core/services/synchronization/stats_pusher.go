@@ -105,8 +105,14 @@ func (sp *statsPusher) GetStatus() ConnectionStatus {
 // Start starts the stats pusher
 func (sp *statsPusher) Start() error {
 	gormCallbacksMutex.Lock()
-	sp.DB.Callback().Create().Register(createCallbackName, createSyncEventWithStatsPusher(sp))
-	sp.DB.Callback().Update().Register(updateCallbackName, createSyncEventWithStatsPusher(sp))
+	err := sp.DB.Callback().Create().Register(createCallbackName, createSyncEventWithStatsPusher(sp))
+	if err != nil {
+		return err
+	}
+	err = sp.DB.Callback().Update().Register(updateCallbackName, createSyncEventWithStatsPusher(sp))
+	if err != nil {
+		return err
+	}
 	gormCallbacksMutex.Unlock()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -241,16 +247,16 @@ func (sp *statsPusher) syncEvent(event models.SyncEvent) error {
 	return nil
 }
 
-func createSyncEventWithStatsPusher(sp StatsPusher) func(s *gorm.DB) {
-	return func(s *gorm.DB) {
+func createSyncEventWithStatsPusher(sp StatsPusher) func(*gorm.DB) {
+	return func(db *gorm.DB) {
 		//if scope.HasError() {
 		//	return
 		//}
-		if s.Error != nil {
+		if db.Error != nil {
 			return
 		}
 
-		if s.Statement.Table != "job_runs" {
+		if db.Statement.Table != "job_runs" {
 			return
 		}
 
@@ -259,26 +265,24 @@ func createSyncEventWithStatsPusher(sp StatsPusher) func(s *gorm.DB) {
 		//	logger.Error("Invariant violated scope.Value is not type *models.JobRun, but TableName was job_runes")
 		//	return
 		//}
-		if s.Statement.ReflectValue.Type() != reflect.TypeOf(&models.JobRun{}) {
-			logger.Error("Invariant violated scope.Value is not type *models.JobRun, but TableName was job_runes")
+		if db.Statement.ReflectValue.Type() != reflect.TypeOf(models.JobRun{}) {
+			logger.Errorf("Invariant violated scope.Value %T is not type models.JobRun, but TableName was job_runs", db.Statement.ReflectValue.Type())
 			return
 		}
-		var run *models.JobRun
-		s.Statement.ReflectValue.Set(reflect.ValueOf(run))
-
-		presenter := SyncJobRunPresenter{run}
+		run := db.Statement.ReflectValue.Interface().(models.JobRun)
+		presenter := SyncJobRunPresenter{&run}
 		bodyBytes, err := json.Marshal(presenter)
 		if err != nil {
-			s.Error = errors.Wrap(err, "createSyncEvent#json.Marshal failed")
+			db.Error = errors.Wrap(err, "createSyncEvent#json.Marshal failed")
 			return
 		}
 
 		event := models.SyncEvent{
 			Body: string(bodyBytes),
 		}
-		err = s.Create(&event).Error
+		err = sp.(*statsPusher).DB.Create(&event).Error
 		if err != nil {
-			s.Error = errors.Wrap(err, "createSyncEvent#Create failed")
+			db.Error = errors.Wrap(err, "createSyncEvent#Create failed")
 			return
 		}
 	}

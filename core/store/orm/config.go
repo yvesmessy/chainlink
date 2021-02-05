@@ -3,7 +3,6 @@ package orm
 import (
 	"encoding/base64"
 	"fmt"
-	"gorm.io/gorm"
 	"io/ioutil"
 	"log"
 	"math/big"
@@ -15,6 +14,8 @@ import (
 	"regexp"
 	"strconv"
 	"time"
+
+	"gorm.io/gorm"
 
 	"github.com/multiformats/go-multiaddr"
 

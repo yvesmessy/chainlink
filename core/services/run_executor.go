@@ -2,8 +2,9 @@ package services
 
 import (
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/logger"

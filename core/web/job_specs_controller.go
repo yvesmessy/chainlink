@@ -2,8 +2,9 @@ package web
 
 import (
 	"fmt"
-	"github.com/jackc/pgconn"
 	"net/http"
+
+	"github.com/jackc/pgconn"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
