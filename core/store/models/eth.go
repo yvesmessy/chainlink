@@ -110,7 +110,8 @@ type Head struct {
 	Hash       common.Hash
 	Number     int64
 	ParentHash common.Hash
-	Parent     *Head
+	ParentID   uint64
+	Parent     *Head `gorm:foreignKey:ParentID`
 	Timestamp  time.Time
 	CreatedAt  time.Time
 }

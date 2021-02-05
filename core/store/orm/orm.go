@@ -7,6 +7,7 @@ import (
 	"encoding"
 	"encoding/hex"
 	"fmt"
+	"gorm.io/gorm/clause"
 	"log"
 	"os"
 	"path/filepath"
@@ -475,7 +476,7 @@ func (orm *ORM) JobRunsFor(jobSpecID *models.ID, limit ...int) ([]models.JobRun,
 	}
 	err := orm.preloadJobRuns().
 		Limit(lim).
-		Where("job_spec_id = ?", *jobSpecID).
+		Where("job_spec_id = ?", jobSpecID.UUID()).
 		Order("created_at desc").
 		Find(&runs).Error
 	return runs, err
@@ -589,7 +590,7 @@ func (orm *ORM) UnscopedJobRunsWithStatus(cb func(*models.JobRun), statuses ...m
 		Table("job_runs").
 		Where("status IN (?)", statuses).
 		Order("created_at asc").
-		Pluck("ID", &runIDs).Error
+		Pluck("id", &runIDs).Error
 	if err != nil {
 		return errors.Wrap(err, "finding job ids")
 	}
@@ -1178,7 +1179,11 @@ func (orm *ORM) CreateKeyIfNotExists(k models.Key) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	err := orm.DB.Set("gorm:insert_option", "ON CONFLICT (address) DO UPDATE SET deleted_at = NULL").Create(&k).Error
+	err := orm.DB.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "address"}},
+		DoUpdates:    clause.Assignments(map[string]interface{}{"deleted_at": nil}),
+	}).Create(&k).Error
+	//Set("gorm:insert_option", "ON CONFLICT (address) DO UPDATE SET deleted_at = NULL").Create(&k).Error
 	if err == nil || err.Error() == "sql: no rows in result set" {
 		return nil
 	}
