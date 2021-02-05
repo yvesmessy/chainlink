@@ -217,7 +217,7 @@ func getConfirmedReceipt(ethTxID int64, db *gorm.DB, minRequiredOutgoingConfirma
 		return &receipt, nil
 	}
 
-	if gorm.IsRecordNotFoundError(err) {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 

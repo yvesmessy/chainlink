@@ -118,10 +118,11 @@ func (p *Pstorewrapper) readFromDB() error {
 }
 
 func (p *Pstorewrapper) getPeers() (peers []P2PPeer, err error) {
-	rows, err := p.db.DB().QueryContext(p.ctx, `SELECT id, addr FROM p2p_peers WHERE peer_id = $1`, p.peerID)
-	if err != nil {
-		return nil, errors.Wrap(err, "error querying peers")
+	r := p.db.Exec(`SELECT id, addr FROM p2p_peers WHERE peer_id = $1`, p.peerID)
+	if r.Error != nil {
+		return nil, errors.Wrap(r.Error, "error querying peers")
 	}
+	rows, err := r.Rows()
 	defer logger.ErrorIfCalling(rows.Close)
 
 	peers = make([]P2PPeer, 0)

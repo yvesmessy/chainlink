@@ -1461,7 +1461,7 @@ func GetLastEthTxAttempt(t testing.TB, store *strpkg.Store) models.EthTxAttempt 
 	t.Helper()
 
 	var txa models.EthTxAttempt
-	var count int
+	var count int64
 	err := store.ORM.RawDB(func(db *gorm.DB) error {
 		return db.Order("created_at desc").First(&txa).Count(&count).Error
 	})

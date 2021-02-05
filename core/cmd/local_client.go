@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	gormpostgres "gorm.io/driver/postgres"
 	"io/ioutil"
 	"math/big"
 	"net/url"
@@ -240,7 +241,7 @@ func logConfigVariables(store *strpkg.Store) error {
 func setupFundingKey(ctx context.Context, str *strpkg.Store, pwd string) (*models.Key, *big.Int, error) {
 	key := models.Key{}
 	err := str.DB.Where("is_funding = TRUE").First(&key).Error
-	if err != nil && !gorm.IsRecordNotFoundError(err) {
+	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil, err
 	}
 	if err == nil && key.ID != 0 {
@@ -491,7 +492,10 @@ func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 	nextNonce := c.Uint64("nextNonce")
 
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	db, err := gorm.Open(string(orm.DialectPostgres), cli.Config.DatabaseURL())
+	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
+		DSN: cli.Config.DatabaseURL(),
+	}), &gorm.Config{}) // TODO add logger
+	//db, err := gorm.Open(string(orm.DialectPostgres), cli.Config.DatabaseURL())
 	if err != nil {
 		return cli.errorOut(err)
 	}

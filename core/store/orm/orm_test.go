@@ -1727,7 +1727,8 @@ func TestORM_MarkLogConsumed(t *testing.T) {
 
 	require.NoError(t, orm.MarkLogConsumed(blockHash, logIndex, job.ID, blockNumber))
 
-	res, err := orm.DB.DB().Exec(`SELECT * FROM log_consumptions;`)
+	d, _ := orm.DB.DB()
+	res, err := d.Exec(`SELECT * FROM log_consumptions;`)
 	require.NoError(t, err)
 	rowsaffected, err := res.RowsAffected()
 	require.NoError(t, err)

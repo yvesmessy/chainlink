@@ -241,7 +241,7 @@ func (eb *ethBroadcaster) handleAnyInProgressEthTx(fromAddress gethCommon.Addres
 func getInProgressEthTx(store *store.Store, fromAddress gethCommon.Address) (*models.EthTx, error) {
 	etx := &models.EthTx{}
 	err := store.DB.Preload("EthTxAttempts").First(etx, "from_address = ? AND state = 'in_progress'", fromAddress.Bytes()).Error
-	if gorm.IsRecordNotFoundError(err) {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	if len(etx.EthTxAttempts) != 1 || etx.EthTxAttempts[0].State != models.EthTxAttemptInProgress {
@@ -336,7 +336,7 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 func (eb *ethBroadcaster) nextUnstartedTransactionWithNonce(fromAddress gethCommon.Address) (*models.EthTx, error) {
 	etx := &models.EthTx{}
 	if err := findNextUnstartedTransactionFromAddress(eb.store.DB, etx, fromAddress); err != nil {
-		if gorm.IsRecordNotFoundError(err) {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// Finish. No more transactions left to process. Hoorah!
 			return nil, nil
 		}
