@@ -2,9 +2,9 @@ package web
 
 import (
 	"fmt"
+	"github.com/jackc/pgconn"
 	"net/http"
 
-	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -45,9 +45,9 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 		return
 	}
 	switch err.(type) {
-	case *pq.Error:
+	case *pgconn.PgError:
 		var apiErr error
-		if err.(pq.Error).Constraint == "external_initiators_name_key" {
+		if err.(*pgconn.PgError).ConstraintName  == "external_initiators_name_key" {
 			apiErr = fmt.Errorf("bridge Type %v conflict", bt.Name)
 		} else {
 			apiErr = err

@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
@@ -10,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -97,7 +97,7 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 
 		validated = true
 
-		if err := re.store.ORM.SaveJobRun(&run); errors.Cause(err) == orm.ErrOptimisticUpdateConflict {
+		if err := re.store.ORM.SaveJobRun(&run); err == orm.ErrOptimisticUpdateConflict {
 			logger.Debugw("Optimistic update conflict while updating run", run.ForLogger()...)
 			return nil
 		} else if err != nil {
@@ -127,8 +127,8 @@ func validateOnMainChainOnce(validated bool, run *models.JobRun, taskRun *models
 func (re *runExecutor) executeTask(run *models.JobRun, taskRun models.TaskRun) models.RunOutput {
 	taskSpec := taskRun.TaskSpec
 
-	js, _ := models.ParseJSON(run.RunRequest.RequestParams)
-	params, err := models.Merge(js, taskSpec.Params)
+	//js, _ := models.ParseJSON(run.RunRequest.RequestParams)
+	params, err := models.Merge(run.RunRequest.RequestParams, taskSpec.Params)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
@@ -146,7 +146,7 @@ func (re *runExecutor) executeTask(run *models.JobRun, taskRun models.TaskRun) m
 		previousTaskInput = previousTaskRun.Result.Data
 	}
 
-	data, err := models.Merge(js, previousTaskInput, taskRun.Result.Data)
+	data, err := models.Merge(run.RunRequest.RequestParams, previousTaskInput, taskRun.Result.Data)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}

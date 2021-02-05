@@ -13,7 +13,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	null "gopkg.in/guregu/null.v4"
-	"gorm.io/datatypes"
 )
 
 var (
@@ -229,12 +228,12 @@ type RunRequest struct {
 	Requester     *common.Address
 	CreatedAt     time.Time
 	Payment       *assets.Link
-	RequestParams datatypes.JSON `gorm:"type:jsonb;default:'{}'"`
+	RequestParams JSON `gorm:"type:jsonb;default:'{}'"`
 }
 
 // NewRunRequest returns a new RunRequest instance.
 func NewRunRequest(requestParams JSON) *RunRequest {
-	return &RunRequest{CreatedAt: time.Now(), RequestParams: requestParams.Bytes()}
+	return &RunRequest{CreatedAt: time.Now(), RequestParams: requestParams}
 }
 
 // TaskRun stores the Task and represents the status of the

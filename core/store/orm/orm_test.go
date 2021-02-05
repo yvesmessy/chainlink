@@ -1388,7 +1388,7 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 		store.RawDB(func(db *gorm.DB) error {
 			var count int64
 			require.NoError(t, db.Table("eth_txes").Count(&count).Error)
-			assert.Equal(t, 1, count)
+			assert.Equal(t, 1, int(count))
 			return nil
 		})
 	})

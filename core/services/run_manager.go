@@ -343,12 +343,12 @@ func (rm *runManager) ResumePendingBridge(
 		return rm.updateWithError(&run, "Attempting to resume pending run with no remaining tasks %s", run.ID)
 	}
 
-	js, _ := models.ParseJSON(run.RunRequest.RequestParams)
-	data, err := models.Merge(js, input.Data)
+	//js, _ := models.ParseJSON(run.RunRequest.RequestParams)
+	data, err := models.Merge(run.RunRequest.RequestParams, input.Data)
 	if err != nil {
 		return rm.updateWithError(&run, "Error while merging onto RequestParams for run %s", run.ID)
 	}
-	run.RunRequest.RequestParams = data.Bytes()
+	run.RunRequest.RequestParams = data
 
 	currentTaskRun.ApplyBridgeRunResult(input)
 	run.ApplyBridgeRunResult(input)

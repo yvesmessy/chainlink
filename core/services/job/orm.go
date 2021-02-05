@@ -3,6 +3,7 @@ package job
 import (
 	"context"
 	"fmt"
+	"github.com/jackc/pgconn"
 	"strings"
 	"sync"
 	"time"
@@ -155,16 +156,16 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *SpecDB, taskDAG pipeline.T
 		jobSpec.PipelineSpecID = pipelineSpecID
 
 		err = tx.Create(jobSpec).Error
-		pqErr, ok := err.(*pq.Error)
+		pqErr, ok := err.(*pgconn.PgError)
 		if err != nil && ok && pqErr.Code == "23503" {
-			if pqErr.Constraint == "offchainreporting_oracle_specs_p2p_peer_id_fkey" {
+			if pqErr.ConstraintName == "offchainreporting_oracle_specs_p2p_peer_id_fkey" {
 				return errors.Wrapf(ErrNoSuchPeerID, "%v", jobSpec.OffchainreportingOracleSpec.P2PPeerID)
 			}
 			if !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
-				if pqErr.Constraint == "offchainreporting_oracle_specs_transmitter_address_fkey" {
+				if pqErr.ConstraintName == "offchainreporting_oracle_specs_transmitter_address_fkey" {
 					return errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jobSpec.OffchainreportingOracleSpec.TransmitterAddress)
 				}
-				if pqErr.Constraint == "offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey" {
+				if pqErr.ConstraintName == "offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey" {
 					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
 				}
 			}

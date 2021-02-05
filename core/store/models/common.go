@@ -9,6 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
+
 	"github.com/pelletier/go-toml"
 
 	"github.com/araddon/dateparse"
@@ -147,6 +150,23 @@ const (
 // Arrays and Objects are returned as their raw json types.
 type JSON struct {
 	gjson.Result
+}
+
+func (JSON) GormDataType() string {
+	return "json"
+}
+
+// GormDBDataType gorm db data type
+func (JSON) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+	switch db.Dialector.Name() {
+	case "sqlite":
+		return "JSON"
+	case "mysql":
+		return "JSON"
+	case "postgres":
+		return "JSONB"
+	}
+	return ""
 }
 
 // Value returns this instance serialized for database storage.

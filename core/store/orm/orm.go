@@ -4,15 +4,19 @@ import (
 	"bytes"
 	"context"
 	"crypto/subtle"
+	"database/sql"
 	"encoding"
 	"encoding/hex"
 	"fmt"
-	"gorm.io/gorm/clause"
+	"github.com/lib/pq"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
+
+	"gorm.io/gorm/clause"
 
 	"github.com/ethereum/go-ethereum/common"
 	//"github.com/jinzhu/gorm"
@@ -20,8 +24,6 @@ import (
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 
-	//_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
-	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -291,6 +293,9 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 			Omit("deleted_at").
 			Save(run)
 		if result.Error != nil {
+			if strings.Contains(result.Error.Error(), "duplicate key value violates unique constraint") {
+				return ErrOptimisticUpdateConflict
+			}
 			return result.Error
 		}
 		if result.RowsAffected == 0 {
@@ -336,11 +341,18 @@ func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 func (orm *ORM) UpsertErrorFor(jobID *models.ID, description string) {
 	jse := models.NewJobSpecError(jobID, description)
 	err := orm.DB.
-		Set(
-			"gorm:insert_option",
-			`ON CONFLICT (job_spec_id, description)
-			DO UPDATE SET occurrences = job_spec_errors.occurrences + 1, updated_at = excluded.updated_at`,
-		).
+		Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "job_spec_id"}, {Name: "description"}},
+		DoUpdates: clause.Assignments(map[string]interface{}{
+			"occurrences": gorm.Expr("occurrences + 1"),
+			"updated_at": "excluded.updated_at",
+		}),
+	}).
+		//Set(
+		//	"gorm:insert_option",
+		//	`ON CONFLICT (job_spec_id, description)
+		//	DO UPDATE SET occurrences = job_spec_errors.occurrences + 1, updated_at = excluded.updated_at`,
+		//).
 		Create(&jse).
 		Error
 
@@ -646,7 +658,7 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID models.ID, fromAddress co
 	ethTaskRunTransaction := models.EthTaskRunTx{
 		TaskRunID: taskRunID.UUID(),
 	}
-	err := orm.Transaction(func(dbtx *gorm.DB) error {
+	err := orm.DB.Transaction(func(dbtx *gorm.DB) error {
 		if err := dbtx.Save(&etx).Error; err != nil {
 			return err
 		}
@@ -1026,6 +1038,7 @@ func (orm *ORM) CreateInitiator(initr *models.Initiator) error {
 // No advisory lock required because this is thread safe.
 func (orm *ORM) IdempotentInsertHead(h models.Head) error {
 	err := orm.DB.Set("gorm:insert_option", "ON CONFLICT (hash) DO NOTHING").Create(&h).Error
+
 	if err != nil && err.Error() == "sql: no rows in result set" {
 		return nil
 	}
@@ -1180,8 +1193,8 @@ func (orm *ORM) CreateKeyIfNotExists(k models.Key) error {
 		return err
 	}
 	err := orm.DB.Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "address"}},
-		DoUpdates:    clause.Assignments(map[string]interface{}{"deleted_at": nil}),
+		Columns:   []clause.Column{{Name: "address"}},
+		DoUpdates: clause.Assignments(map[string]interface{}{"deleted_at": nil}),
 	}).Create(&k).Error
 	//Set("gorm:insert_option", "ON CONFLICT (address) DO UPDATE SET deleted_at = NULL").Create(&k).Error
 	if err == nil || err.Error() == "sql: no rows in result set" {
@@ -1556,7 +1569,12 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 		},
 	)
 	//dsn := "host=localhost user=gorm password=gorm dbname=gorm port=9920 sslmode=disable TimeZone=Asia/Shanghai"
+	d, err := sql.Open(string(ct.dialect), ct.uri)
+	if err != nil {
+		return nil, err
+	}
 	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
+		Conn: d,
 		DSN: originalUri,
 	}), &gorm.Config{Logger: newLogger})
 	//db, err := gorm.Open(string(ct.dialect), ct.uri)
@@ -1564,7 +1582,6 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", ct.uri)
 	}
 
-	d, _ := db.DB()
 	d.SetMaxOpenConns(ct.maxOpenConns)
 	d.SetMaxIdleConns(ct.maxIdleConns)
 
