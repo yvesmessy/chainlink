@@ -224,6 +224,9 @@ func (j *JSON) UnmarshalTOML(val interface{}) error {
 
 // Bytes returns the raw JSON.
 func (j JSON) Bytes() []byte {
+	if len(j.String()) == 0 {
+		return nil
+	}
 	return []byte(j.String())
 }
 
