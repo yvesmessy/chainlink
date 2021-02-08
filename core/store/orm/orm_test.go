@@ -155,9 +155,9 @@ func TestORM_ArchiveJob(t *testing.T) {
 	require.Error(t, utils.JustError(store.FindJobSpec(job.ID)))
 	require.Error(t, utils.JustError(store.FindJobRun(run.ID)))
 
-	orm := store.ORM.Unscoped()
-	require.NoError(t, utils.JustError(orm.FindJobSpec(job.ID)))
-	require.NoError(t, utils.JustError(orm.FindJobRun(run.ID)))
+	store.ORM.DB = store.DB.Unscoped().Session(&gorm.Session{})
+	require.NoError(t, utils.JustError(store.FindJobSpec(job.ID)))
+	require.NoError(t, utils.JustError(store.FindJobRun(run.ID)))
 }
 
 func TestORM_CreateJobRun_CreatesRunRequest(t *testing.T) {
@@ -1008,7 +1008,7 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 }
 
 const linkEthTxWithTaskRunQuery = `
-INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)
+INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES (?, ?)
 `
 
 func TestORM_RemoveUnstartedTransaction(t *testing.T) {
@@ -1224,7 +1224,7 @@ func TestJobs_SQLiteBatchSizeIntegrity(t *testing.T) {
 	defer cleanup()
 
 	archivedJob := cltest.NewJobWithFluxMonitorInitiator()
-	archivedJob.DeletedAt = cltest.NullableTime(time.Now())
+	archivedJob.DeletedAt = gorm.DeletedAt{Valid: true, Time: time.Now()}
 	require.NoError(t, store.CreateJob(&archivedJob))
 
 	jobs := []models.JobSpec{}

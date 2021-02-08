@@ -394,7 +394,7 @@ func (orm *ORM) DeleteExternalInitiator(name string) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	err := orm.DB.Delete(&models.ExternalInitiator{Name: name}).Error
+	err := orm.DB.Delete(&models.ExternalInitiator{}, "name = ?", name).Error
 	return err
 }
 
@@ -406,7 +406,7 @@ func (orm *ORM) FindExternalInitiator(
 		return nil, err
 	}
 	initiator := &models.ExternalInitiator{}
-	err := orm.DB.Where("access_key = ?", eia.AccessKey).Find(initiator).Error
+	err := orm.DB.Where("access_key = ?", eia.AccessKey).First(initiator).Error
 	if err != nil {
 		return nil, errors.Wrap(err, "error finding external initiator")
 	}

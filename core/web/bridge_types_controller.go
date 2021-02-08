@@ -45,10 +45,10 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, e)
 		return
 	}
-	switch err.(type) {
+	switch e := err.(type) {
 	case *pgconn.PgError:
 		var apiErr error
-		if err.(*pgconn.PgError).ConstraintName == "external_initiators_name_key" {
+		if e.ConstraintName == "external_initiators_name_key" {
 			apiErr = fmt.Errorf("bridge Type %v conflict", bt.Name)
 		} else {
 			apiErr = err

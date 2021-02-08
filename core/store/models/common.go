@@ -697,7 +697,7 @@ type Configuration struct {
 	Value     string `gorm:"not null"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	DeletedAt *time.Time
+	DeletedAt *gorm.DeletedAt
 }
 
 // Merge returns a new map with all keys merged from right to left
