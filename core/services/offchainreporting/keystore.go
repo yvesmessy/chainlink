@@ -207,11 +207,11 @@ func (ks KeyStore) UpsertEncryptedOCRKeyBundle(encryptedKey *ocrkey.EncryptedKey
 		//		deleted_at=null`,
 		//).
 		Clauses(clause.OnConflict{
-			Columns: []clause.Column{{Name: "pub_key"}},
+			Columns: []clause.Column{{Name: "id"}},
 			DoUpdates: clause.Assignments(map[string]interface{}{
-				"occurrences": gorm.Expr("excluded.encrypted_priv_key"),
-				"updated_at":  time.Now(),
-				"deleted_at":  gorm.Expr("null"),
+				"encrypted_private_keys": gorm.Expr("excluded.encrypted_private_keys"),
+				"updated_at":             time.Now(),
+				"deleted_at":             gorm.Expr("null"),
 			}),
 		}).
 		Create(encryptedKey).

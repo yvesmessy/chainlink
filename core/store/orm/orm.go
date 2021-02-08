@@ -306,9 +306,9 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 			tc := t
 			// TODO batch
 			if err := dbtx.Model(&tc).Updates(map[string]interface{}{
-				"Status":    tc.Status,
-				"UpdatedAt": tc.UpdatedAt,
-				"Created":   tc.CreatedAt,
+				"Status": tc.Status,
+				//"UpdatedAt": tc.UpdatedAt,
+				//"CreatedAt":   tc.CreatedAt,
 			}).Error; err != nil {
 				return err
 			}
@@ -923,7 +923,7 @@ func (orm *ORM) ClearNonCurrentSessions(sessionID string) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	return orm.DB.Where("id = ?", sessionID).Delete(models.Session{}).Error
+	return orm.DB.Delete(&models.Session{}, "id != ?", sessionID).Error
 }
 
 // JobsSorted returns many JobSpecs sorted by CreatedAt from the store adhering

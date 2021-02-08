@@ -9,13 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const queryFindBlockNumberForLogConsumption = `
-SELECT block_number
-FROM log_consumptions
-WHERE block_hash=?
-AND log_index=$2
-AND job_id=$3
-`
+const queryFindBlockNumberForLogConsumption = `SELECT block_number FROM log_consumptions WHERE block_hash = $1 AND log_index = $2 AND job_id = $3`
 
 func TestMarkLogConsumed_Happy(t *testing.T) {
 	t.Parallel()

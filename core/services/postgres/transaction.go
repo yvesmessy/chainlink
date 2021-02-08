@@ -32,7 +32,7 @@ func GormTransaction(ctx context.Context, db *gorm.DB, fc func(tx *gorm.DB) erro
 	} else {
 		txOpts = DefaultSqlTxOptions
 	}
-	tx := db.Begin(&txOpts)
+	tx := db.WithContext(ctx).Begin(&txOpts)
 	err = tx.Exec(fmt.Sprintf(`SET LOCAL lock_timeout = %v; SET LOCAL idle_in_transaction_session_timeout = %v;`, LockTimeout.Milliseconds(), IdleInTxSessionTimeout.Milliseconds())).Error
 	if err != nil {
 		return errors.Wrap(err, "error setting transaction timeouts")

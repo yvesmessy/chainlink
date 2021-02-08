@@ -812,7 +812,7 @@ func TestClient_ChangePassword(t *testing.T) {
 
 	// otherClient should now be logged out
 	err = otherClient.IndexBridges(c)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "401 Unauthorized")
 }
 

@@ -147,7 +147,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
             SELECT pipeline_spec_id, ?, NOW()
             FROM jobs WHERE id = ? 
             RETURNING *`, JSONSerializable{Val: meta}, jobID).Scan(&run).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if run.ID == 0 {
 			return errors.Errorf("no job found with id %v (most likely it was deleted)", jobID)
 		} else if err != nil {
 			return errors.Wrap(err, "could not create pipeline run")
@@ -458,17 +458,21 @@ func (o *orm) ResultsForRun(ctx context.Context, runID int64) ([]Result, error) 
 }
 
 func (o *orm) RunFinished(runID int64) (bool, error) {
-	var done struct{ Done bool }
+	//var done struct{ Done bool }
 	// TODO: Since we denormalised this can be made more efficient
 	// https://www.pivotaltracker.com/story/show/176557536
+	var tr TaskRun
 	err := o.db.Raw(`
-        SELECT finished_at IS NOT NULL AS done
+        SELECT * 
         FROM pipeline_task_runs
         INNER JOIN pipeline_task_specs ON pipeline_task_runs.pipeline_task_spec_id = pipeline_task_specs.id
         WHERE pipeline_task_runs.pipeline_run_id = ? AND pipeline_task_specs.successor_id IS NULL
 		LIMIT 1
-    `, runID).Scan(&done).Error
-	return done.Done, errors.Wrapf(err, "could not determine if run is finished (run ID: %v)", runID)
+    `, runID).Scan(&tr).Error
+	if tr.ID == 0 {
+		return false, errors.Errorf("could not determine if run is finished (run ID: %v)", runID)
+	}
+	return tr.FinishedAt != nil, errors.Wrapf(err, "could not determine if run is finished (run ID: %v)", runID)
 }
 
 func (o *orm) DeleteRunsOlderThan(threshold time.Duration) error {

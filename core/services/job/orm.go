@@ -184,7 +184,7 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 
 	err := o.db.Exec(`
             WITH deleted_jobs AS (
-            	DELETE FROM jobs WHERE id = $1 RETURNING offchainreporting_oracle_spec_id, pipeline_spec_id
+            	DELETE FROM jobs WHERE id = ? RETURNING offchainreporting_oracle_spec_id, pipeline_spec_id
             ),
             deleted_oracle_specs AS (
 				DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
@@ -207,7 +207,7 @@ func (o *orm) CheckForDeletedJobs(ctx context.Context) (deletedJobIDs []int32, e
 	defer o.claimedJobsMu.RUnlock()
 	var claimedJobIDs []int32 = o.claimedJobIDs()
 
-	r := o.db.Exec(`SELECT id FROM jobs WHERE id = ANY($1)`, pq.Array(claimedJobIDs))
+	r := o.db.Exec(`SELECT id FROM jobs WHERE id = ANY(?)`, pq.Array(claimedJobIDs))
 	if r.Error != nil {
 		return nil, errors.Wrap(err, "could not query for jobs")
 	}
