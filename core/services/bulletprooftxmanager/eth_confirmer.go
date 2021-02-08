@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -39,16 +40,28 @@ var (
 // Step 4: Check confirmed transactions to make sure they are still in the longest chain (reorg protection)
 
 type ethConfirmer struct {
+	utils.StartStopOnce
+
 	store     *store.Store
 	ethClient eth.Client
 	config    orm.ConfigReader
+	mb        *utils.Mailbox
+	ctx       context.Context
+	ctxCancel context.CancelFunc
+	chDone    chan struct{}
 }
 
 func NewEthConfirmer(store *store.Store, config orm.ConfigReader) *ethConfirmer {
+	context, cancel := context.WithCancel(context.Background())
 	return &ethConfirmer{
-		store:     store,
-		ethClient: store.EthClient,
-		config:    config,
+		utils.StartStopOnce{},
+		store,
+		store.EthClient,
+		config,
+		utils.NewMailbox(1),
+		context,
+		cancel,
+		make(chan struct{}),
 	}
 }
 
@@ -62,8 +75,47 @@ func (ec *ethConfirmer) Disconnect() {
 }
 
 func (ec *ethConfirmer) OnNewLongestChain(ctx context.Context, head models.Head) {
-	if err := ec.ProcessHead(ctx, head); err != nil {
-		logger.Errorw("EthConfirmer error", "err", err)
+	ec.mb.Deliver(head)
+}
+
+func (ec *ethConfirmer) Start() error {
+	if !ec.OkayToStart() {
+		return errors.New("Pipeline runner has already been started")
+	}
+	go ec.runLoop()
+	return nil
+}
+
+func (ec *ethConfirmer) Close() error {
+	if !ec.OkayToStop() {
+		return errors.New("Pipeline runner has already been stopped")
+	}
+	ec.ctxCancel()
+	<-ec.chDone
+	return nil
+}
+
+func (ec *ethConfirmer) runLoop() {
+	defer close(ec.chDone)
+	for {
+		select {
+		case <-ec.mb.Notify():
+			for {
+				if ec.ctx.Err() != nil {
+					return
+				}
+				head := ec.mb.Retrieve()
+				if head == nil {
+					break
+				}
+				h := head.(models.Head)
+				if err := ec.ProcessHead(ec.ctx, h); err != nil {
+					logger.Errorw("EthConfirmer error", "err", err)
+				}
+			}
+		case <-ec.ctx.Done():
+			return
+		}
 	}
 }
 
