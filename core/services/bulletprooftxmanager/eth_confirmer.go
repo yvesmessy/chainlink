@@ -248,7 +248,7 @@ func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []model
 		)
 
 		if eth.IsParityQueriedReceiptTooEarly(err) || (receipt != nil && receipt.BlockNumber == nil) {
-			l.Debugw("EthConfirmer#batchFetchReceipts: got receipt for transaction but it's still in the mempool and not included in a block yet")
+			l.Debugw("EthConfirmer#batchFetchReceipts: got receipt for transaction but it's still in the mempool and not included in a block yet", "err", err)
 			continue
 		} else if err != nil && err.Error() != "not found" {
 			l.Errorw("EthConfirmer#batchFetchReceipts: fetchReceipt failed", "err", err)
