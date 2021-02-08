@@ -147,7 +147,7 @@ func (orm *ORM) FindBridge(name models.TaskType) (bt models.BridgeType, err erro
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return bt, err
 	}
-	return bt, orm.DB.First(&bt, "name = ?", name.String()).Error
+	return bt, orm.DB.Where("name = ?", name.String()).First(&bt).Error
 }
 
 // FindBridgesByNames finds multiple bridges by their names.
@@ -282,14 +282,15 @@ func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	return orm.Transaction(callback)
+	return postgres.GormTransaction(context.Background(), orm.DB, callback)
+	//retur orm.Transaction(callback)
 }
 
 // SaveJobRun updates UpdatedAt for a JobRun and saves it
 func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		result := dbtx.Unscoped().
-			Model(run).
+			//Model(run).
 			Where("updated_at = ?", run.UpdatedAt).
 			Omit("deleted_at").
 			Save(run)
@@ -301,6 +302,14 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 		}
 		if result.RowsAffected == 0 {
 			return ErrOptimisticUpdateConflict
+		}
+		result = dbtx.Unscoped().
+			Save(&run.Result)
+		if result.Error != nil {
+			if strings.Contains(result.Error.Error(), "duplicate key value violates unique constraint") {
+				return ErrOptimisticUpdateConflict
+			}
+			return result.Error
 		}
 		for _, t := range run.TaskRuns {
 			tc := t
@@ -1474,7 +1483,8 @@ func (orm *ORM) getRecords(collection interface{}, order string, offset, limit i
 		return err
 	}
 	return orm.DB.
-		Set("gorm:auto_preload", true).
+		//Set("gorm:auto_preload", true).
+		Preload(clause.Associations).
 		Order(order).Limit(limit).Offset(offset).
 		Find(collection).Error
 }

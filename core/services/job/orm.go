@@ -9,8 +9,6 @@ import (
 
 	"gorm.io/gorm/clause"
 
-	"github.com/jackc/pgconn"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	storm "github.com/smartcontractkit/chainlink/core/store/orm"
@@ -159,16 +157,16 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *SpecDB, taskDAG pipeline.T
 		jobSpec.PipelineSpecID = pipelineSpecID
 
 		err = tx.Create(jobSpec).Error
-		pqErr, ok := err.(*pgconn.PgError)
+		pqErr, ok := err.(*pq.Error)
 		if err != nil && ok && pqErr.Code == "23503" {
-			if pqErr.ConstraintName == "offchainreporting_oracle_specs_p2p_peer_id_fkey" {
+			if pqErr.Constraint == "offchainreporting_oracle_specs_p2p_peer_id_fkey" {
 				return errors.Wrapf(ErrNoSuchPeerID, "%v", jobSpec.OffchainreportingOracleSpec.P2PPeerID)
 			}
 			if !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
-				if pqErr.ConstraintName == "offchainreporting_oracle_specs_transmitter_address_fkey" {
+				if pqErr.Constraint == "offchainreporting_oracle_specs_transmitter_address_fkey" {
 					return errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jobSpec.OffchainreportingOracleSpec.TransmitterAddress)
 				}
-				if pqErr.ConstraintName == "offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey" {
+				if pqErr.Constraint == "offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey" {
 					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
 				}
 			}
@@ -207,11 +205,10 @@ func (o *orm) CheckForDeletedJobs(ctx context.Context) (deletedJobIDs []int32, e
 	defer o.claimedJobsMu.RUnlock()
 	var claimedJobIDs []int32 = o.claimedJobIDs()
 
-	r := o.db.Exec(`SELECT id FROM jobs WHERE id = ANY(?)`, pq.Array(claimedJobIDs))
-	if r.Error != nil {
+	rows, err := o.db.Raw(`SELECT id FROM jobs WHERE id = ANY(?)`, pq.Array(claimedJobIDs)).Rows()
+	if err != nil {
 		return nil, errors.Wrap(err, "could not query for jobs")
 	}
-	rows, err := r.Rows()
 	defer logger.ErrorIfCalling(rows.Close)
 
 	foundJobs := make(map[int32]struct{})

@@ -112,6 +112,7 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 		if run.GetStatus().Errored() {
 			logger.Warnw("Task failed", run.ForLogger()...)
 		} else {
+			logger.Debug("val", run.Result.Data, run.Result.ErrorMessage)
 			logger.Debugw("All tasks complete for run", run.ForLogger()...)
 		}
 	}
