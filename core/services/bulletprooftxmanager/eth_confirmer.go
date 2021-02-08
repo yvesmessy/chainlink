@@ -244,7 +244,7 @@ func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []model
 		}
 
 		l := logger.Default.With(
-			"txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID, "ethTxID", attempt.EthTxID,
+			"txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID, "ethTxID", attempt.EthTxID, "receipt", receipt,
 		)
 
 		if eth.IsParityQueriedReceiptTooEarly(err) || (receipt != nil && receipt.BlockNumber == nil) {
@@ -255,7 +255,7 @@ func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []model
 			continue
 		}
 		if receipt != nil {
-			l.Debugw("EthConfirmer#fetchReceipts: got receipt for transaction", "blockNumber", receipt.BlockNumber)
+			l.Debugw("EthConfirmer#batchFetchReceipts: got receipt for transaction", "blockNumber", receipt.BlockNumber)
 			if receipt.TxHash != attempt.Hash {
 				l.Errorf("EthConfirmer#batchFetchReceipts: invariant violation, expected receipt with hash %s to have same hash as attempt with hash %s", receipt.TxHash.Hex(), attempt.Hash.Hex())
 				continue
