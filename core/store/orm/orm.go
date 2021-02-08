@@ -515,7 +515,7 @@ func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
 	}
 	var sessions []models.Session
 	err := orm.DB.
-		Set("gorm:auto_preload", true).
+		//Set("gorm:auto_preload", true).
 		Limit(limit).
 		Offset(offset).
 		Find(&sessions).Error
@@ -1275,9 +1275,9 @@ func (orm *ORM) GetRoundRobinAddress(addresses ...common.Address) (address commo
 func (orm *ORM) HasConsumedLog(blockHash common.Hash, logIndex uint, jobID *models.ID) (bool, error) {
 	query := "SELECT exists (" +
 		"SELECT id FROM log_consumptions " +
-		"WHERE block_hash=$1 " +
-		"AND log_index=$2 " +
-		"AND job_id=$3" +
+		"WHERE block_hash=? " +
+		"AND log_index=? " +
+		"AND job_id=?" +
 		")"
 
 	var exists bool
@@ -1294,9 +1294,9 @@ func (orm *ORM) HasConsumedLog(blockHash common.Hash, logIndex uint, jobID *mode
 func (orm *ORM) HasConsumedLogV2(blockHash common.Hash, logIndex uint, jobID int32) (bool, error) {
 	query := "SELECT exists (" +
 		"SELECT id FROM log_consumptions " +
-		"WHERE block_hash=$1 " +
-		"AND log_index=$2 " +
-		"AND job_id_v2=$3" +
+		"WHERE block_hash=? " +
+		"AND log_index=? " +
+		"AND job_id_v2=? " +
 		")"
 
 	var exists bool

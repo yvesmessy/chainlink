@@ -285,7 +285,8 @@ RETURNING id;`
 		if result.Error != nil {
 			return result.Error
 		}
-		return result.Pluck("id", &runIDs).Error
+		// https://github.com/go-gorm/gorm/issues/3722
+		return result.Scan(&runIDs).Error
 	})
 
 	if err != nil {
@@ -343,7 +344,6 @@ func (rm *runManager) ResumePendingBridge(
 		return rm.updateWithError(&run, "Attempting to resume pending run with no remaining tasks %s", run.ID)
 	}
 
-	//js, _ := models.ParseJSON(run.RunRequest.RequestParams)
 	data, err := models.Merge(run.RunRequest.RequestParams, input.Data)
 	if err != nil {
 		return rm.updateWithError(&run, "Error while merging onto RequestParams for run %s", run.ID)

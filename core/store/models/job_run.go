@@ -36,7 +36,7 @@ type JobRun struct {
 	RunRequest     RunRequest     `json:"-" gorm:"foreignkey:RunRequestID;association_autoupdate:true;association_autocreate:true"`
 	RunRequestID   clnull.Int64   `json:"-"`
 	Status         RunStatus      `json:"status" gorm:"default:'unstarted'"`
-	TaskRuns       []TaskRun      `json:"taskRuns"`
+	TaskRuns       []TaskRun      `json:"taskRuns" gorm:"foreignKey:JobRunID"`
 	CreatedAt      time.Time      `json:"createdAt"`
 	FinishedAt     null.Time      `json:"finishedAt"`
 	UpdatedAt      time.Time      `json:"updatedAt"`
