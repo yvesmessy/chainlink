@@ -17,6 +17,9 @@ import (
 func Test_Peerstore_Start(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	//_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "bl", true)
+	//defer cleanup()
+	//store.ORM = orm
 
 	// Deferring the constraint avoids having to insert an entire set of jobs/specs
 	require.NoError(t, store.DB.Exec(`SET CONSTRAINTS p2p_peers_peer_id_fkey DEFERRED`).Error)
@@ -26,23 +29,23 @@ func Test_Peerstore_Start(t *testing.T) {
 		'/ip4/127.0.0.1/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		NOW(),
 		NOW(),
-		$1
+		?	
 	),
 	(
 		'12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		'/ip4/127.0.0.2/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		NOW(),
 		NOW(),
-		$1
+	 	?	
 	),
 	(
 		'12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		'/ip4/127.0.0.2/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		NOW(),
 		NOW(),
-		$2
+		?	
 	)
-	`, cltest.DefaultP2PPeerID, cltest.NonExistentP2PPeerID).Error
+	`, cltest.DefaultP2PPeerID, cltest.DefaultP2PPeerID, cltest.NonExistentP2PPeerID).Error
 	require.NoError(t, err)
 
 	wrapper, err := offchainreporting.NewPeerstoreWrapper(store.DB, 1*time.Second, models.PeerID(cltest.DefaultP2PPeerID))

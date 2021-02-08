@@ -1245,7 +1245,10 @@ func (orm *ORM) FindEncryptedSecretVRFKeys(where ...vrfkey.EncryptedVRFKey) (
 // etc
 func (orm *ORM) GetRoundRobinAddress(addresses ...common.Address) (address common.Address, err error) {
 	err = postgres.GormTransaction(context.Background(), orm.DB, func(tx *gorm.DB) error {
-		q := tx.Set("gorm:query_option", "FOR UPDATE").Order("last_used ASC NULLS FIRST, id ASC")
+		q := tx.
+			//Set("gorm:query_option", "FOR UPDATE").
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Order("last_used ASC NULLS FIRST, id ASC")
 		q = q.Where("is_funding = FALSE")
 		if len(addresses) > 0 {
 			q = q.Where("address in (?)", addresses)

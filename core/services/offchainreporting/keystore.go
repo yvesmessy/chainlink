@@ -119,9 +119,9 @@ func (ks KeyStore) UpsertEncryptedP2PKey(k *p2pkey.EncryptedP2PKey) error {
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "pub_key"}},
 			DoUpdates: clause.Assignments(map[string]interface{}{
-				"occurrences": gorm.Expr("excluded.encrypted_priv_key"),
-				"updated_at":  time.Now(),
-				"deleted_at":  gorm.Expr("null"),
+				"encrypted_priv_key": gorm.Expr("excluded.encrypted_priv_key"),
+				"updated_at":         time.Now(),
+				"deleted_at":         gorm.Expr("null"),
 			}),
 		}).
 		//Set(

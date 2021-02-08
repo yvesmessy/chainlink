@@ -12,7 +12,7 @@ import (
 const queryFindBlockNumberForLogConsumption = `
 SELECT block_number
 FROM log_consumptions
-WHERE block_hash=$1
+WHERE block_hash=?
 AND log_index=$2
 AND job_id=$3
 `

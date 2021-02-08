@@ -144,8 +144,8 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 
 		err = tx.Raw(`
             INSERT INTO pipeline_runs (pipeline_spec_id, meta, created_at)
-            SELECT pipeline_spec_id, $1, NOW()
-            FROM jobs WHERE id = $2
+            SELECT pipeline_spec_id, ?, NOW()
+            FROM jobs WHERE id = ? 
             RETURNING *`, JSONSerializable{Val: meta}, jobID).Scan(&run).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.Errorf("no job found with id %v (most likely it was deleted)", jobID)

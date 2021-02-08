@@ -242,7 +242,7 @@ func logConfigVariables(store *strpkg.Store) error {
 func setupFundingKey(ctx context.Context, str *strpkg.Store, pwd string) (*models.Key, *big.Int, error) {
 	key := models.Key{}
 	err := str.DB.Where("is_funding = TRUE").First(&key).Error
-	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil, err
 	}
 	if err == nil && key.ID != 0 {
