@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/stretchr/testify/mock"
 
@@ -388,7 +390,7 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		var jb job.SpecDB
-		err = db.Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
+		err = db.Session(&gorm.Session{}).Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
 			Find(&jb).Error
 		require.NoError(t, err)
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.

@@ -302,6 +302,17 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 		if result.RowsAffected == 0 {
 			return ErrOptimisticUpdateConflict
 		}
+		for _, t := range run.TaskRuns {
+			tc := t
+			// TODO batch
+			if err := dbtx.Model(&tc).Updates(map[string]interface{}{
+				"Status":    tc.Status,
+				"UpdatedAt": tc.UpdatedAt,
+				"Created":   tc.CreatedAt,
+			}).Error; err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 }
@@ -904,7 +915,7 @@ func (orm *ORM) ClearSessions() error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	return orm.DB.Delete(models.Session{}).Error
+	return orm.DB.Exec(`truncate sessions`).Error
 }
 
 // ClearNonCurrentSessions removes all sessions but the id passed in.
@@ -912,7 +923,7 @@ func (orm *ORM) ClearNonCurrentSessions(sessionID string) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	return orm.DB.Where("id <> ?", sessionID).Delete(models.Session{}).Error
+	return orm.DB.Where("id = ?", sessionID).Delete(models.Session{}).Error
 }
 
 // JobsSorted returns many JobSpecs sorted by CreatedAt from the store adhering
@@ -1126,7 +1137,7 @@ func (orm *ORM) DeleteStaleSessions(before time.Time) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	return orm.DB.Where("last_used < ?", before).Delete(models.Session{}).Error
+	return orm.DB.Where("last_used < ?", before).Delete(&models.Session{}).Error
 }
 
 // BulkDeleteRuns removes JobRuns and their related records: TaskRuns and
