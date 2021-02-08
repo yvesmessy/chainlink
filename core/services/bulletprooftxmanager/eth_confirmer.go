@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"gorm.io/gorm/clause"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -236,7 +238,11 @@ func (ec *ethConfirmer) saveReceipt(receipt gethTypes.Receipt, ethTxID int64) er
 		// be one receipt for an eth_tx, and if it exists then the transaction
 		// is marked confirmed which means we can never get here.
 		// However, even so, it still shouldn't be an error to re-insert a receipt we already have.
-		err = tx.Set("gorm:insert_option", "ON CONFLICT (tx_hash, block_hash) DO NOTHING").
+		err = tx. // Set("gorm:insert_option", "ON CONFLICT (tx_hash, block_hash) DO NOTHING").
+				Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "tx_hash"}, {Name: "block_hash"}},
+				DoNothing: true,
+			}).
 			Create(&models.EthReceipt{
 				Receipt:          receiptJSON,
 				TxHash:           receipt.TxHash,

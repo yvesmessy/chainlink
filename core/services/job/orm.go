@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"gorm.io/gorm/clause"
+
 	"github.com/jackc/pgconn"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -249,11 +251,13 @@ func (o *orm) unclaimJob(ctx context.Context, id int32) error {
 func (o *orm) RecordError(ctx context.Context, jobID int32, description string) {
 	pse := SpecError{JobID: jobID, Description: description, Occurrences: 1}
 	err := o.db.
-		Set(
-			"gorm:insert_option",
-			`ON CONFLICT (job_id, description)
-			DO UPDATE SET occurrences = job_spec_errors_v2.occurrences + 1, updated_at = excluded.updated_at`,
-		).
+		Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "job_id"}, {Name: "description"}},
+			DoUpdates: clause.Assignments(map[string]interface{}{
+				"occurrences": gorm.Expr("job_spec_errors_v2.occurrences + 1"),
+				"updated_at":  gorm.Expr("excluded.updated_at"),
+			}),
+		}).
 		Create(&pse).
 		Error
 	// Noop if the job has been deleted.

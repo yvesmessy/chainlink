@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
+
+	"gorm.io/gorm/clause"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
@@ -113,13 +116,21 @@ func (ks KeyStore) GenerateEncryptedP2PKey() (p2pkey.Key, p2pkey.EncryptedP2PKey
 
 func (ks KeyStore) UpsertEncryptedP2PKey(k *p2pkey.EncryptedP2PKey) error {
 	err := ks.
-		Set(
-			"gorm:insert_option",
-			`ON CONFLICT (pub_key) DO UPDATE SET
-				encrypted_priv_key=EXCLUDED.encrypted_priv_key,
-				updated_at=NOW(),
-				deleted_at=null`,
-		).
+		Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "pub_key"}},
+			DoUpdates: clause.Assignments(map[string]interface{}{
+				"occurrences": gorm.Expr("excluded.encrypted_priv_key"),
+				"updated_at":  time.Now(),
+				"deleted_at":  gorm.Expr("null"),
+			}),
+		}).
+		//Set(
+		//	"gorm:insert_option",
+		//	`ON CONFLICT (pub_key) DO UPDATE SET
+		//		encrypted_priv_key=EXCLUDED.encrypted_priv_key,
+		//		updated_at=NOW(),
+		//		deleted_at=null`,
+		//).
 		Create(k).
 		Error
 	if err != nil {
@@ -188,13 +199,21 @@ func (ks KeyStore) CreateEncryptedOCRKeyBundle(encryptedKey *ocrkey.EncryptedKey
 func (ks KeyStore) UpsertEncryptedOCRKeyBundle(encryptedKey *ocrkey.EncryptedKeyBundle) error {
 	fmt.Println("encryptedKey.ID", encryptedKey.ID)
 	err := ks.
-		Set(
-			"gorm:insert_option",
-			`ON CONFLICT (id) DO UPDATE SET
-				encrypted_private_keys=EXCLUDED.encrypted_private_keys,
-				updated_at=NOW(),
-				deleted_at=null`,
-		).
+		//Set(
+		//	"gorm:insert_option",
+		//	`ON CONFLICT (id) DO UPDATE SET
+		//		encrypted_private_keys=EXCLUDED.encrypted_private_keys,
+		//		updated_at=NOW(),
+		//		deleted_at=null`,
+		//).
+		Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "pub_key"}},
+			DoUpdates: clause.Assignments(map[string]interface{}{
+				"occurrences": gorm.Expr("excluded.encrypted_priv_key"),
+				"updated_at":  time.Now(),
+				"deleted_at":  gorm.Expr("null"),
+			}),
+		}).
 		Create(encryptedKey).
 		Error
 	if err != nil {

@@ -410,6 +410,9 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "ble", true)
+	defer cleanup()
+	store.ORM = orm
 
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 

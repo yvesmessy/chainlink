@@ -80,7 +80,7 @@ type EthTxAttempt struct {
 	CreatedAt               time.Time
 	BroadcastBeforeBlockNum *int64
 	State                   EthTxAttemptState
-	EthReceipts             []EthReceipt `gorm:"foreignkey:TxHash;association_foreignkey:Hash;association_autoupdate:false;association_autocreate:false"`
+	EthReceipts             []EthReceipt `gorm:"foreignKey:TxHash;references:Hash;association_foreignkey:Hash;association_autoupdate:false;association_autocreate:false"`
 }
 
 type EthReceipt struct {
