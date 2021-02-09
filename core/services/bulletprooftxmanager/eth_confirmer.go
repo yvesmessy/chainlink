@@ -224,7 +224,7 @@ func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []model
 		req := rpc.BatchElem{
 			Method: "eth_getTransactionReceipt",
 			Args:   []interface{}{attempt.Hash},
-			Result: &gethTypes.Receipt{},
+			Result: (*gethTypes.Receipt)(nil),
 		}
 		reqs = append(reqs, req)
 	}
