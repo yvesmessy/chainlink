@@ -204,7 +204,7 @@ func (orm *ORM) FindInitiator(ID int64) (initr models.Initiator, err error) {
 		return initr, err
 	}
 	return initr, orm.DB.
-		Set("gorm:auto_preload", true).
+		Preload(clause.Associations).
 		First(&initr, "id = ?", ID).Error
 }
 
@@ -238,12 +238,32 @@ func (orm *ORM) preloadJobRuns() *gorm.DB {
 		Preload("Result")
 }
 
+func (orm *ORM) preloadJobRunsUnscoped() *gorm.DB {
+	return orm.DB.Unscoped().
+		Preload("Initiator", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
+		}).
+		Preload("RunRequest").
+		Preload("TaskRuns", func(db *gorm.DB) *gorm.DB {
+			return preloadTaskRuns(db).Order("task_spec_id asc")
+		}).
+		Preload("Result")
+}
+
 // FindJobRun looks up a JobRun by its ID.
 func (orm *ORM) FindJobRun(id *models.ID) (jr models.JobRun, err error) {
 	if err = orm.MustEnsureAdvisoryLock(); err != nil {
 		return jr, err
 	}
 	err = orm.preloadJobRuns().First(&jr, "id = ?", id).Error
+	return jr, err
+}
+
+func (orm *ORM) FindJobRunIncludingArchived(id *models.ID) (jr models.JobRun, err error) {
+	if err = orm.MustEnsureAdvisoryLock(); err != nil {
+		return jr, err
+	}
+	err = orm.preloadJobRunsUnscoped().First(&jr, "id = ?", id).Error
 	return jr, err
 }
 
@@ -447,7 +467,7 @@ func (orm *ORM) FindServiceAgreement(id string) (sa models.ServiceAgreement, err
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return sa, err
 	}
-	return sa, orm.DB.Set("gorm:auto_preload", true).First(&sa, "id = ?", id).Error
+	return sa, orm.DB.Preload(clause.Associations).First(&sa, "id = ?", id).Error
 }
 
 // Jobs fetches all jobs.
@@ -818,7 +838,7 @@ func (orm *ORM) FindUser() (user models.User, err error) {
 		return user, err
 	}
 	err = orm.DB.
-		Set("gorm:auto_preload", true).
+		Preload(clause.Associations).
 		Order("created_at desc").
 		First(&user).Error
 	return user, err

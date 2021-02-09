@@ -154,7 +154,6 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 	authToken := utils.StripBearer(c.Request.Header.Get("Authorization"))
 	// TODO: need a way to unscope per call here - can't
 	// just unscope everything, because then we hit the chaining method problem
-	//unscoped := jrc.App.GetStore().Unscoped()
 
 	runID, err := models.NewIDFromString(c.Param("RunID"))
 	if err != nil {
@@ -162,7 +161,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		return
 	}
 
-	jr, err := jrc.App.GetStore().FindJobRun(runID)
+	jr, err := jrc.App.GetStore().FindJobRunIncludingArchived(runID)
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job Run not found"))
 		return
